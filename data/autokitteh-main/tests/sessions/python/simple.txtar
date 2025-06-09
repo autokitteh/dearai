@@ -1,0 +1,5 @@
+meow, world!
+
+-- main.py:main --
+def main(event):
+    print("meow, world!")

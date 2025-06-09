@@ -1,0 +1,34 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - errname
+    - gocritic
+    - intrange
+    - loggercheck
+    - noctx
+    - nosprintfhostport
+    - perfsprint
+    - unconvert
+    - usestdlibvars
+  settings:
+    loggercheck:
+      zap: true
+
+formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(go.autokitteh.dev/autokitteh)
+
+issues:
+  new: false

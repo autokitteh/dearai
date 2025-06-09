@@ -1,0 +1,63 @@
+# Preconditions: create project and connection.
+ak project create --name my_project
+return code == 0
+output equals 'project_id: prj_00000000000000000000000001'
+
+ak connection create my_connection --project my_project --integration test -q
+return code == 0
+output equals 'connection_id: con_00000000000000000000000002'
+
+# Negative tests: get nonexistent connection name/ID, with/out --fail flag.
+ak connection get my_project/bad_connection
+return code == 0
+output equals ''
+
+ak connection get con_0000000000000000000000dead
+return code == 0
+output equals ''
+
+ak connection get my_project/bad_connection --fail
+output equals 'Error: connection: not_found'
+return code == $RC_NOT_FOUND
+
+ak connection get con_0000000000000000000000dead --fail
+output equals 'Error: connection: not_found'
+return code == $RC_NOT_FOUND
+
+# Negative test: get connection by name, without project prefix.
+ak connection get my_connection
+output equals 'Error: invalid connection name "my_connection": missing project prefix'
+return code == 1
+
+# Get connection by name/ID, with/out JSON flag.
+ak connection get my_project/my_connection
+return code == 0
+output contains 'connection_id:"con_00000000000000000000000002"'
+output contains 'project_id:"prj_00000000000000000000000001"'
+output contains 'integration_id:"int_3kth00testaf9d33c5697341f0"'
+output contains 'name:"my_connection"'
+
+ak connection get con_00000000000000000000000002 -J
+return code == 0
+output equals file expected_connection.json
+
+-- expected_connection.json --
+{
+  "connection": {
+    "connection_id": "con_00000000000000000000000002",
+    "integration_id": "int_3kth00testaf9d33c5697341f0",
+    "project_id": "prj_00000000000000000000000001",
+    "name": "my_connection",
+    "status": {
+      "code": "CODE_OK",
+      "message": "OK"
+    },
+    "capabilities": {
+      "supports_connection_test": true
+    },
+    "links": {
+      "self_url": "/connections/con_00000000000000000000000002",
+      "test_url": "/connections/con_00000000000000000000000002/test"
+    }
+  }
+}

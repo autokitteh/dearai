@@ -1,0 +1,6 @@
+position: 4
+label: Persistent Storage
+link:
+  type: generated-index
+  slug: /config/storage
+  description: Persistent storage options and procedures.

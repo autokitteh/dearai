@@ -1,0 +1,7 @@
+position: 5
+label: Develop
+link:
+  type: generated-index
+  slug: /develop
+  title: Developing with AutoKitteh
+  description: A deep-dive into using AutoKitteh.

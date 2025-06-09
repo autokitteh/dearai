@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <title>Login</title>
+  <script src="/static/descope-web-component.js"></script>
+</head>
+
+<body>
+  <div style="max-width: 500px; margin: auto;">
+    <descope-wc project-id="{{ .ProjectID }}" flow-id="sign-up-or-in" theme="os"></descope-wc>
+  </div>
+
+  <script>
+    const onSuccess = async (e) => {
+      window.location.replace(`/auth/descope/login?jwt=${e.detail.sessionJwt}`);
+    }
+
+    const onError = (err) => console.error(err);
+
+    const wcElement = document.getElementsByTagName("descope-wc")[0];
+    wcElement.addEventListener("success", onSuccess);
+    wcElement.addEventListener("error", onError);
+  </script>
+</body>
+
+</html>

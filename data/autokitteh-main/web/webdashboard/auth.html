@@ -1,0 +1,43 @@
+{{ template "header_" . }}
+
+<h1>Auth</h1>
+
+{{ if User }}
+<p>
+    You are <tt>{{ User }}</tt>.
+</p>
+
+<pre>{{ .UserJSON }}</pre>
+
+<button onclick="window.location.href='/logout'">Logout</button>
+{{ else }}
+<p>You are not logged in.</p>
+{{ end }}
+
+<h2>Tokens</h2>
+
+<button onclick="createToken()">Create</button>
+<button onclick="copyToClipboard()">Copy to clipboard</button>
+<br />
+<br />
+<textarea id="token" rows="4" cols="128" readonly></textarea>
+
+<script>
+    function createToken() {
+        fetch('/internal/dashboard/auth/tokens', { method: 'POST', })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('token').innerHTML = data;
+            });
+    }
+
+    function copyToClipboard() {
+        var copyText = document.getElementById("token");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        document.execCommand("copy");
+        copyText.setSelectionRange(0, 0);
+    }
+</script>
+
+{{ template "footer_" . }}

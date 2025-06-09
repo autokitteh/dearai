@@ -1,0 +1,5 @@
+label: Microsoft
+link:
+  type: generated-index
+  slug: /integrations/microsoft
+  description: "AutoKitteh supports two connection modes, both using Microsoft apps: user-delegated (OAuth 2.0), and daemon apps."

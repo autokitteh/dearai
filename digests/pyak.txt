@@ -1,0 +1,1355 @@
+Directory structure:
+└── pyak/
+    ├── __init__.py
+    ├── activities.py
+    ├── airtable.py
+    ├── anthropic.py
+    ├── asana.py
+    ├── atlassian.py
+    ├── attr_dict.py
+    ├── auth0.py
+    ├── aws.py
+    ├── connections.py
+    ├── discord.py
+    ├── errors.py
+    ├── event.py
+    ├── events.py
+    ├── github.py
+    ├── google.py
+    ├── height.py
+    ├── hubspot.py
+    ├── kubernetes.py
+    ├── linear.py
+    ├── microsoft.py
+    ├── oauth2_session.py
+    ├── openai.py
+    ├── packages.py
+    ├── reddit.py
+    ├── salesforce.py
+    ├── signals.py
+    ├── slack.py
+    ├── store.py
+    ├── twilio.py
+    └── zoom.py
+
+================================================
+FILE: __init__.py
+================================================
+"""AutoKitteh Python SDK."""
+from . import errors
+from .activities import activity, inhibit_activities, register_no_activity
+from .attr_dict import AttrDict
+from .event import Event
+from .events import next_event, start, subscribe, unsubscribe
+from .signals import Signal, next_signal, signal
+from .errors import AutoKittehError
+from .store import add_values, del_value, get_value, list_values_keys, mutate_value, set_value, store
+__all__ = ['AttrDict', 'errors', 'start', 'AutoKittehError', 'activity',
+    'inhibit_activities', 'register_no_activity', 'Event', 'next_event',
+    'subscribe', 'unsubscribe', 'next_signal', 'signal', 'Signal',
+    'add_values', 'del_value', 'get_value', 'list_values_keys',
+    'mutate_value', 'set_value', 'store']
+
+
+
+================================================
+FILE: activities.py
+================================================
+"""Decorator to mark a function as a Temporal activity."""
+from typing import Callable
+ACTIVITY_ATTR = '__ak_activity__'
+INHIBIT_ACTIVITIES_ATTR = '__ak_inhibit_activities__'
+
+
+def activity(fn: callable) ->callable:
+    """Decorator to mark a function as a Temporal activity.
+
+    This forces AutoKitteh to run the function as a single Temporal activity,
+    instead of a sequence of activities within a Temporal workflow.
+
+    Use this decorator when you want to run functions with input arguments
+    and/or return values that are not compatible with pickle.
+
+    For more details, see:
+    https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+    """
+    ...
+
+
+def inhibit_activities(fn: callable) ->callable:
+    """Decorator to inhibit the execution of Temporal activities.
+
+    Functions using this decorator will not spawn activities even if otherwise
+    activities should have been launched. This is useful for performing operations
+    that are required to run even on replay (such as various clients creation) and
+    are completely deterministic. The function results are not cached and would be
+    rerun in case of replay.
+
+    CAVEAT: Do not use this on functions that take a long time to run (more than a second),
+    as they will cause the workflow to timeout.
+    """
+    ...
+
+
+_no_activity = set()
+
+
+def register_no_activity(items: list[Callable]) ->None:
+    """Mark items that should not run as activities.
+
+    Items should be callable and hashable. If an item is a class, all methods in the
+    class are marked as non-activities.
+
+    This helps speeding up your code, but you might risk non-deterministic behavior.
+    """
+    ...
+
+
+
+================================================
+FILE: airtable.py
+================================================
+"""Initialize an Airtable client, based on an AutoKitteh connection."""
+import os
+from pyairtable import Api
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
+
+
+def airtable_client(connection: str) ->Api:
+    """Initialize an Airtable client, based on an AutoKitteh connection.
+
+    API reference:
+    https://pyairtable.readthedocs.io/en/stable/getting-started.html
+    https://github.com/gtalarico/pyairtable
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Requests session object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+
+================================================
+FILE: anthropic.py
+================================================
+"""Initialize an Anthropic client, based on an AutoKitteh connection."""
+import os
+from anthropic import Anthropic
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def anthropic_client(connection: str) ->Anthropic:
+    """Initialize an Anthropic client, based on an AutoKitteh connection.
+
+    API reference:
+    https://docs.anthropic.com/claude/reference
+    https://github.com/anthropics/anthropic-sdk-python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Anthropic API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        anthropic.APIError: Anthropic SDK initialization errors.
+    """
+    ...
+
+
+
+================================================
+FILE: asana.py
+================================================
+import os
+import asana
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def asana_client(connection: str) ->asana.ApiClient:
+    """Initialize an Asana client, based on an AutoKitteh connection.
+
+    API reference:
+    https://developers.asana.com/docs/python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Asana client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
+FILE: atlassian.py
+================================================
+"""Initialize an Atlassian client, based on an AutoKitteh connection."""
+from datetime import UTC, datetime
+import re
+import os
+from atlassian import Confluence, Jira
+from requests_oauthlib import OAuth2Session
+from .connections import check_connection_name
+from .errors import AtlassianOAuthError, ConnectionInitError, EnvVarError
+__TOKEN_URL = 'https://auth.atlassian.com/oauth/token'
+
+
+def jira_client(connection: str, **kwargs) ->Jira:
+    """Initialize an Atlassian Jira client, based on an AutoKitteh connection.
+
+    API reference:
+    https://atlassian-python-api.readthedocs.io/jira.html
+
+    Code samples:
+    https://github.com/atlassian-api/atlassian-python-api/tree/master/examples/jira
+
+    Args:
+        connection: AutoKitteh connection name.
+        **kwargs: Additional keyword arguments passed to the Jira client.
+            Common options include:
+            - 'url': URL of the Jira instance.
+            - 'username': Username for Jira authentication.
+            - 'password': Password for Jira authentication.
+            - 'token': API token for Jira authentication.
+            - 'verify_ssl': Boolean to verify SSL certificates.
+            For a full list of accepted arguments, see:
+            https://github.com/atlassian-api/atlassian-python-api/blob/master/atlassian/rest_client.py#L48
+
+    Returns:
+        Atlassian-Python-API Jira client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        EnvVarError: Required environment variable is missing or invalid.
+    """
+    ...
+
+
+def confluence_client(connection: str, **kwargs) ->Confluence:
+    """Initialize an Atlassian Confluence client, based on an AutoKitteh connection.
+
+    API reference:
+    https://atlassian-python-api.readthedocs.io/confluence.html
+
+    Code samples:
+    https://github.com/atlassian-api/atlassian-python-api/tree/master/examples/confluence
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Atlassian-Python-API Confluence client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        EnvVarError: Required environment variable is missing or invalid.
+        AtlassianOAuthError
+    """
+    ...
+
+
+def get_base_url(connection: str) ->(str | None):
+    """Get the base URL of an AutoKitteh connection's Atlassian server.
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Base URL of the Atlassian connection, or None if
+        the AutoKitteh connection was not initialized yet.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+    """
+    ...
+
+
+
+================================================
+FILE: attr_dict.py
+================================================
+"""Helper class to allow attribute access to dictionary keys."""
+
+
+class AttrDict(dict):
+    """Allow attribute access to dictionary keys.
+
+    >>> config = AttrDict({'server': {'port': 8080}, 'debug': True})
+    >>> config.server.port
+    8080
+    >>> config.debug
+    True
+    """
+
+
+
+================================================
+FILE: auth0.py
+================================================
+import os
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+from auth0.management import Auth0
+
+
+def auth0_client(connection: str, **kwargs) ->Auth0:
+    """Initialize an Auth0 client, based on an AutoKitteh connection.
+
+    API reference:
+    https://auth0-python.readthedocs.io/en/latest/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Auth0 SDK client.
+
+    Raises:
+        ConnectionInitError: If the connection is not initialized.
+        ValueError: If the connection name is invalid.
+    """
+    ...
+
+
+
+================================================
+FILE: aws.py
+================================================
+"""Initialize a Boto3 (AWS SDK) client, based on an AutoKitteh connection."""
+import os
+import boto3
+from .connections import check_connection_name
+
+
+def boto3_client(connection: str, service: str, region: str='', **kwargs):
+    """Initialize a Boto3 (AWS SDK) client, based on an AutoKitteh connection.
+
+    API reference:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
+
+    Code samples:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/guide/examples.html
+
+    Args:
+        connection: AutoKitteh connection name.
+        service: AWS service name.
+        region: AWS region name.
+
+    Returns:
+        Boto3 client.
+
+    Raises:
+        ValueError: AutoKitteh connection or AWS service/region names are invalid.
+        BotoCoreError: Authentication error.
+    """
+    ...
+
+
+
+================================================
+FILE: connections.py
+================================================
+"""AutoKitteh connection-related utilities."""
+from datetime import UTC, datetime
+import re
+
+
+def check_connection_name(connection: str) ->None:
+    """Check that the given AutoKitteh connection name is valid.
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Raises:
+        ValueError: The connection name is invalid.
+    """
+    ...
+
+
+def encode_jwt(payload: dict[str, int], connection: str, algorithm: str) ->str:
+    """Mock function to generate JWTs, overridden by the AutoKitteh runner."""
+    ...
+
+
+def refresh_oauth(integration: str, connection: str) ->tuple[str, datetime]:
+    """Mock function to refresh OAuth tokens, overridden by the AutoKitteh runner."""
+    ...
+
+
+
+================================================
+FILE: discord.py
+================================================
+import os
+import discord
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def discord_client(connection: str, intents=None, **kwargs) ->discord.Client:
+    """Initialize a Discord client, based on an AutoKitteh connection.
+
+    API reference:
+    https://discordpy.readthedocs.io/en/stable/api.html
+
+    Args:
+        connection: AutoKitteh connection name.
+        intents: An object representing the events your bot can receive.
+
+    Returns:
+        Discord client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        DiscordException: Connection attempt failed, or connection is unauthorized.
+    """
+    ...
+
+
+def bot_token(connection: str):
+    ...
+
+
+
+================================================
+FILE: errors.py
+================================================
+"""AutoKitteh SDK errors."""
+
+
+class AutoKittehError(Exception):
+    """Generic base class for all errors in the AutoKitteh SDK."""
+
+
+class ConnectionInitError(AutoKittehError):
+    """A required AutoKitteh connection was not initialized yet."""
+
+
+class EnvVarError(AutoKittehError):
+    """A required environment variable is missing or invalid."""
+
+
+class OAuthRefreshError(AutoKittehError):
+    """OAuth token refresh failed."""
+
+
+class AtlassianOAuthError(AutoKittehError):
+    """API calls not supported by OAuth-based Atlassian connections."""
+
+
+
+================================================
+FILE: event.py
+================================================
+"""AutoKitteh Event class"""
+from dataclasses import dataclass
+from .attr_dict import AttrDict
+
+
+@dataclass
+class Event:
+    """AutoKitteh Event as passed to entrypoints."""
+    data: AttrDict
+    session_id: str
+
+
+
+================================================
+FILE: events.py
+================================================
+"""Un/subscribe and consume AutoKitteh connection events."""
+from datetime import timedelta
+from uuid import uuid4
+from .attr_dict import AttrDict
+
+
+def subscribe(source: str, filter: str='') ->str:
+    """Subscribe to events on connection. Optional filter is a CEL expression.
+
+    Cannot be used in an activity."""
+    ...
+
+
+def unsubscribe(subscription_id: str) ->None:
+    """Unsubscribe from events.
+
+    Cannot be used in an activity."""
+    ...
+
+
+def next_event(subscription_id: (str | list[str]), *, timeout: (timedelta |
+    int | float)=None) ->AttrDict:
+    """Get the next event from the subscription(s).
+
+    If timeout is not None and there are no new events after timeout, this function will
+    return None.
+
+    Cannot be used in an activity.
+    """
+    ...
+
+
+def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
+    project: str='') ->str:
+    """Start a new session.
+
+    Cannot be used in an activity."""
+    ...
+
+
+
+================================================
+FILE: github.py
+================================================
+"""Initialize a GitHub client, based on an AutoKitteh connection."""
+import os
+import time
+from urllib.parse import urljoin
+from github import Auth, Consts, Github, GithubIntegration
+from .connections import check_connection_name, encode_jwt
+from .errors import ConnectionInitError
+
+
+def github_client(connection: str, **kwargs) ->Github:
+    """Initialize a GitHub client, based on an AutoKitteh connection.
+
+    API reference and examples: https://pygithub.readthedocs.io/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        PyGithub client.
+
+    Raises:
+        ValueError: AutoKitteh connection name or GitHub app IDs are invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+class AppAuth(Auth.AppAuth):
+    """Generate JWTs without exposing the GitHub app's private key.
+
+    Based on: https://github.com/PyGithub/PyGithub/blob/main/github/Auth.py
+    """
+
+    def create_jwt(self, expiration: (int | None)=None) ->str:
+        ...
+
+
+
+================================================
+FILE: google.py
+================================================
+"""Initialize Google API clients, based on AutoKitteh connections."""
+from datetime import UTC, datetime
+import json
+import os
+import re
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
+import google.generativeai as genai
+import google.oauth2.credentials as credentials
+import google.oauth2.service_account as service_account
+from googleapiclient.discovery import build
+import gspread
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
+
+
+def gmail_client(connection: str, **kwargs):
+    """Initialize a Gmail client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/google/gmail/python
+
+    Code samples:
+    - https://github.com/autokitteh/kittehub/tree/main/samples/google/gmail
+    - https://github.com/googleworkspace/python-samples/tree/main/gmail
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Gmail client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def google_calendar_client(connection: str, **kwargs):
+    """Initialize a Google Calendar client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/google/calendar/python
+
+    Code samples:
+    https://github.com/autokitteh/kittehub/tree/main/samples/google/calendar
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Google Calendar client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def google_drive_client(connection: str, **kwargs):
+    """Initialize a Google Drive client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/google/drive/python
+
+    Code samples:
+    https://github.com/googleworkspace/python-samples/tree/main/drive
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Google Drive client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def google_forms_client(connection: str, **kwargs):
+    """Initialize a Google Forms client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/google/forms/python
+
+    Code samples:
+    - https://github.com/autokitteh/kittehub/tree/main/samples/google/forms
+    - https://github.com/googleworkspace/python-samples/tree/main/forms
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Google Forms client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def gemini_client(connection: str, **kwargs) ->genai.GenerativeModel:
+    """Initialize a Gemini generative AI client, based on an AutoKitteh connection.
+
+    API reference:
+    - https://ai.google.dev/gemini-api/docs
+    - https://github.com/google-gemini/generative-ai-python/blob/main/docs/api/google/generativeai/GenerativeModel.md
+
+    Code samples:
+    - https://ai.google.dev/gemini-api/docs#explore-the-api
+    - https://ai.google.dev/gemini-api/docs/text-generation?lang=python
+    - https://github.com/google-gemini/generative-ai-python/tree/main/samples
+    - https://github.com/google-gemini/cookbook
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        An initialized GenerativeModel instance.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+def google_sheets_client(connection: str, **kwargs):
+    """Initialize a Google Sheets client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/google/sheets/python
+
+    Code samples:
+    - https://github.com/autokitteh/kittehub/tree/main/samples/google/sheets
+    - https://github.com/googleworkspace/python-samples/tree/main/sheets
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Google Sheets client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def gspread_client(connection: str, **kwargs) ->gspread.Client:
+    """Initialize a gspread client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.gspread.org/en/latest/
+    https://github.com/burnash/gspread
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        gspread client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def youtube_client(connection: str, **kwargs):
+    """Initialize a YouTube Data API client, based on an AutoKitteh connection.
+
+
+    Code samples:
+    - https://github.com/youtube/api-samples/tree/master/python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        YouTube Data API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def google_creds(integration: str, connection: str, scopes: list[str], **kwargs
+    ):
+    """Initialize credentials for a Google APIs client, for service discovery.
+
+    This function supports both AutoKitteh connection modes:
+    users (with OAuth 2.0), and GCP service accounts (with a JSON key).
+
+    Code samples:
+    https://github.com/googleworkspace/python-samples
+
+    For subsequent usage details, see:
+    https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.discovery-module.html#build
+
+    Args:
+        integration: AutoKitteh integration name.
+        connection: AutoKitteh connection name.
+        scopes: List of OAuth permission scopes.
+
+    Returns:
+        Google API credentials, ready for usage
+        in "googleapiclient.discovery.build()".
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def google_id(url: str) ->str:
+    """Extract the Google Doc/Form/Sheet ID from a URL. This function is idempotent.
+
+    Example: 'https://docs.google.com/.../d/1a2b3c4d5e6f/edit' --> '1a2b3c4d5e6f'
+    """
+    ...
+
+
+
+================================================
+FILE: height.py
+================================================
+"""Initialize a Height client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
+
+
+def height_client(connection: str) ->Session:
+    """Initialize an Height client, based on an AutoKitteh connection.
+
+    API reference:
+    https://height-api.xyz/openapi/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Requests session object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
+FILE: hubspot.py
+================================================
+"""Initialize a HubSpot client, based on an AutoKitteh connection."""
+import os
+from hubspot import HubSpot
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
+
+
+def hubspot_client(connection: str, **kwargs) ->HubSpot:
+    """Initialize a HubSpot client, based on an AutoKitteh connection.
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        HubSpot SDK client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+
+================================================
+FILE: kubernetes.py
+================================================
+import json
+import os
+from types import ModuleType
+from kubernetes import client, config
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def kubernetes_client(connection: str) ->ModuleType:
+    """Initialize a Kubernetes client, based on an AutoKitteh connection.
+
+    API reference:
+    https://github.com/kubernetes-client/python
+    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Kubernetes API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: If the connection config is missing or invalid,
+            or if an unexpected error occurs during client initialization.
+
+    """
+    ...
+
+
+
+================================================
+FILE: linear.py
+================================================
+"""Initialize a Linear client, based on an AutoKitteh connection."""
+import os
+from requests import Session
+from .connections import check_connection_name
+from .oauth2_session import OAuth2Session
+
+
+def linear_client(connection: str) ->Session:
+    """Initialize a Linear client, based on an AutoKitteh connection.
+
+    API reference:
+    https://linear.app/developers/graphql
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Requests session object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
+FILE: microsoft.py
+================================================
+"""Initialize Microsoft Graph SDK clients, based on AutoKitteh connections."""
+from datetime import datetime, timedelta, UTC
+import os
+from azure.core import credentials
+from azure import identity
+from msgraph import GraphServiceClient
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError
+DEFAULT_REFRESH_BUFFER_TIME = timedelta(minutes=5)
+
+
+def teams_client(connection: str, **kwargs) ->GraphServiceClient:
+    """Initialize a Microsoft Teams client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.autokitteh.com/integrations/microsoft/teams/python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Microsoft Graph client.
+
+    Raises:
+        ValueError: AutoKitteh connection name or auth type are invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+class OAuthTokenProvider(credentials.TokenCredential):
+    """OAuth 2.0 token wrapper for Microsoft Graph clients."""
+
+    def get_token(self, *scopes: str, **kwargs) ->credentials.AccessToken:
+        ...
+
+
+
+================================================
+FILE: oauth2_session.py
+================================================
+from requests_toolbelt import sessions
+from os import getenv
+from .connections import refresh_oauth
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+class OAuth2Session(sessions.BaseUrlSession):
+    """Encapsulates a requests session, based on an AutoKitteh connection.
+
+    - Automatically sets the Authorization header with an OAuth token.
+    - Automatically refreshes an OAuth token if a refresh token is
+      initialized in the connection.
+    """
+
+
+
+================================================
+FILE: openai.py
+================================================
+"""Initialize an OpenAI client, based on an AutoKitteh connection."""
+import os
+from openai import OpenAI
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def openai_client(connection: str) ->OpenAI:
+    """Initialize an OpenAI client, based on an AutoKitteh connection.
+
+    API reference:
+    https://platform.openai.com/docs/api-reference/
+    https://github.com/openai/openai-python/blob/main/api.md
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        OpenAI API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OpenAIError: Connection attempt failed, or connection is unauthorized.
+    """
+    ...
+
+
+
+================================================
+FILE: packages.py
+================================================
+import re
+import sys
+from subprocess import run
+from shutil import which
+
+
+def install(*packages):
+    """Install Python packages using pip.
+
+    A package can be either a package requirement specifier
+    (see https://pip.pypa.io/en/stable/reference/requirement-specifiers/)
+    or a tuple of (package specifier, import name) in case the import name differs from
+    the package name (e.g. Package `pillow` import imported as `PIL`).
+
+    Examples:
+    >>> install('requests', 'numpy')
+    >>> install('requests ~= 2.32', 'numpy == 2.0.0')
+    >>> install(['pillow ~= 10.4', 'PIL'])
+    """
+    ...
+
+
+
+================================================
+FILE: reddit.py
+================================================
+"""Initializes a Reddit client, based on an AutoKitteh connection."""
+import os
+import praw
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def reddit_client(connection: str) ->praw.Reddit:
+    """Initialize a Reddit client, based on an AutoKitteh connection.
+
+    API reference:
+    https://praw.readthedocs.io/en/stable/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Reddit API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
+FILE: salesforce.py
+================================================
+"""Initialize a Salesforce client, based on an AutoKitteh connection."""
+import os
+from simple_salesforce import Salesforce
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def salesforce_client(connection: str, **kwargs) ->Salesforce:
+    """Initialize a Salesforce client, based on an AutoKitteh connection.
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Salesforce client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        SalesforceApiError: Connection attempt failed, or connection is unauthorized.
+    """
+    ...
+
+
+
+================================================
+FILE: signals.py
+================================================
+"""Send and receive signals."""
+from datetime import timedelta
+from dataclasses import dataclass
+
+
+@dataclass
+class Signal:
+    name: str
+    payload: any = None
+
+
+def signal(session_id: str, name: str, payload: any=None) ->None:
+    """Signal a session.
+
+    Cannot be used in an activity."""
+    ...
+
+
+def next_signal(name: (str | list[str]), *, timeout: (timedelta | int |
+    float)=None) ->(Signal | None):
+    """Get the next signal.
+
+    Cannot be used in an activity."""
+    ...
+
+
+
+================================================
+FILE: slack.py
+================================================
+"""Slack client initialization, and other helper functions."""
+import os
+import re
+from slack_sdk.web.client import WebClient
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def slack_client(connection: str, **kwargs) ->WebClient:
+    """Initialize a Slack client, based on an AutoKitteh connection.
+
+    API reference:
+    https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html
+
+    This function doesn't initialize a Socket Mode client because the
+    AutoKitteh connection already has one to receive incoming events.
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Slack SDK client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        SlackApiError: Connection attempt failed, or connection is unauthorized.
+    """
+    ...
+
+
+def normalize_channel_name(name: str) ->str:
+    """Convert arbitrary text into a valid Slack channel name.
+
+    See: https://api.slack.com/methods/conversations.create#naming
+
+    Args:
+        name: Desired name for a Slack channel.
+
+    Returns:
+        Valid Slack channel name.
+    """
+    ...
+
+
+
+================================================
+FILE: store.py
+================================================
+from collections.abc import MutableMapping
+from typing import Any
+from enum import StrEnum
+_local_dev_store = {}
+
+
+class Store(MutableMapping):
+    """Store it a dict like interface to ak store.
+
+    Note that read-modify-write operations are not atomic.
+
+    Values must be pickleable, see
+    https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+    """
+
+
+store = Store()
+
+
+class Op(StrEnum):
+    """Enum for operation types."""
+    SET = 'set'
+    GET = 'get'
+    DEL = 'del'
+    ADD = 'add'
+
+
+def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
+    """Mutate a stored value.
+
+    Args:
+        key: Key of the value to mutate.
+        op: Operation to perform on the value.
+        args: Additional arguments for the operation.
+
+    Returns:
+        Any: Result of the operation, if applicable.
+
+    Raises:
+        AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def get_value(key: str) ->Any:
+    """Get a stored value.
+
+    Args:
+        key: Key of the value to retrieve.
+
+    Returns:
+        Any: The stored value, or None if not found.
+    """
+    ...
+
+
+def set_value(key: str, value: Any) ->None:
+    """Set a stored value.
+
+    Args:
+        key: Key of the value to set.
+        value: Value to store. If Value is None, it will be deleted. Value must be serializable.
+
+    Returns:
+        None.
+
+    Raises:
+        AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def add_values(key: str, value: (int | float)) ->(int | float):
+    """Add to a stored value.
+
+    This operation is atomic.
+
+    If key is not found, its initial value is set to the provided value.
+
+    Args:
+        key: Key of the value to set.
+        value: Value to add. Value must be serializable.
+
+    Returns:
+        New result value. Always the same type as the value stored under the key.
+    """
+    ...
+
+
+def del_value(key: str) ->None:
+    """Delete a stored value.
+
+    Args:
+        key: Key of the value to set.
+
+    Returns:
+        None.
+    """
+    ...
+
+
+def list_values_keys() ->list[str]:
+    """List all stored keys.
+
+    Returns:
+        list[str]: Sorted list of all keys in the store.
+    """
+    ...
+
+
+
+================================================
+FILE: twilio.py
+================================================
+"""Initialize a Twilio client, based on an AutoKitteh connection."""
+import os
+from twilio.rest import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def twilio_client(connection: str) ->Client:
+    """Initialize a Twilio client, based on an AutoKitteh connection.
+
+    API reference:
+    https://www.twilio.com/docs/libraries/python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Twilio client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
+FILE: zoom.py
+================================================
+"""Initialize a Zoom client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
+
+
+def zoom_client(connection: str) ->Session:
+    """Initialize a Zoom client, based on an AutoKitteh connection.
+
+    API reference:
+    https://developers.zoom.us/docs/api/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Requests session object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+

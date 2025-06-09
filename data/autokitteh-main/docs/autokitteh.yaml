@@ -1,0 +1,78 @@
+# Currently only v1 is supported.
+version: v1
+
+# Project configuration.
+project:
+  # Project name is used to identify a specific project.
+  # Unique system wide.
+  name: http
+  # Variables are used to store project specific configuration, which
+  # can be accessed from the project's code.
+  # For example, in Python using:
+  #  os.getenv("NAME")
+  # (see also: https://docs.autokitteh.com/develop/python#working-with-secrets)
+  vars:
+    - # Variable name.
+      name: myvar
+      # Variable value.
+      value: "myvalue"
+    - # Secret variables are not exposed in the UI. Can be set via UI though.
+      name: shhhh
+      secret: true
+  connections:
+    # Redis
+    - name: myredis
+      integration: "redis"
+      vars:
+        - name: "URL"
+          value: "redis://user:password@localhost:6789/3?dial_timeout=3&db=1&read_timeout=6s&max_retries=2"
+    # gRPC
+    - name: grpc
+      integration: "grpc"
+    # AWS
+    - name: aws
+      integration: "aws"
+    # GitHub
+    - name: github
+      integration: "github"
+    # Slack
+    - name: slack
+      integration: "slack"
+    # Twilio
+    - name: twilio
+      integration: "twilio"
+    # Google
+    - name: google
+      integration: "google"
+  # Triggers specify how to route incoming events generated from the connections to this project.
+  triggers:
+    - # Webhook trigger.
+      # The trigger name.
+      # This is applicable for all trigger types.
+      name: http_get
+      # Optional: event_type. For HTTP this is the method.
+      # This is applicable for all trigger types.
+      event_type: get
+      # Optional: event filter, specified in CEL (https://github.com/google/cel-spec).
+      # The event type is available via the `type` field.
+      # This is applicable for all trigger types.
+      filter: "data.path == 'meow' && type == 'GET'"
+      # Function to call when the event is received.
+      # This is applicable for all trigger types.
+      call: main.star:on_http_get
+      # This indicates that the trigger is a webhook trigger.
+      webhook: {}
+    - # Schedule trigger.
+      name: every_minute
+      # Function to call when the event is received.
+      call: main.star:on_every_minute
+      # The schedule.
+      schedule: "*/1 * * * *"
+    - # Connection trigger.
+      name: slack_message
+      # Optional: event_type
+      event_type: message
+      # Function to call when the event is received.
+      call: main.star:on_slack_message
+      # The connection to receive events from.
+      connection: myslack

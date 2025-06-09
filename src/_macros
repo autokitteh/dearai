@@ -1,0 +1,13 @@
+{%- macro code(path, lang="") -%}
+
+```{{ lang }}
+{% include path -%}
+```
+
+{%- endmacro %}
+
+{%- macro quote(path) -%}
+"""
+{% include path -%}
+"""
+{%- endmacro %}

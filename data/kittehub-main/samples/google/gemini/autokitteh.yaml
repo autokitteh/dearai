@@ -1,0 +1,21 @@
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Gemini.
+
+version: v1
+
+project:
+  name: gemini_sample
+
+  connections:
+    - name: gemini_conn
+      integration: googlegemini
+
+  triggers:
+    - name: trivial_interaction
+      type: webhook
+      event_type: get
+      call: program.py:trivial_interaction
+    - name: interactive_chat
+      type: webhook
+      event_type: get
+      call: program.py:interactive_chat

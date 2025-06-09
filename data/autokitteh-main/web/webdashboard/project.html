@@ -1,0 +1,35 @@
+{{ template "header_" . }}
+
+<h1>Project: <tt>{{ .Name }}</tt></h1>
+<button onclick="deleteProject()">Delete</button>
+<pre>{{ .JSON }}</pre>
+
+<h2>{{ .Connections.N }} Connections</h2>
+{{ template "list_table_" .Connections}}
+
+<h2>{{ .Triggers.N }} Triggers</h2>
+{{ template "list_table_" .Triggers}}
+
+<h2>Resources</h2>
+Hash: <pre>{{ .ResourcesHash }}</pre>
+Content:
+<pre>{{ .Resources }}</pre>
+
+<script>
+    function deleteProject() {
+        if (confirm("Delete this project?")) {
+            fetch("/internal/dashboard/projects/{{ .ID }}", {
+                method: "DELETE",
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = "/internal/dashboard/projects";
+                } else {
+                    console.error(response);
+                    alert("Failed to delete project: " + response.statusText);
+                }
+            });
+        }
+    }
+</script>
+
+{{ template "footer_" . }}

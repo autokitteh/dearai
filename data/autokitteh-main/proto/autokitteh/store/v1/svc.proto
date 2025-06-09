@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package autokitteh.store.v1;
+
+import "autokitteh/values/v1/values.proto";
+import "buf/validate/validate.proto";
+
+service StoreService {
+  rpc Mutate(MutateRequest) returns (MutateResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc List(ListRequest) returns (ListResponse);
+}
+
+message MutateRequest {
+  string project_id = 1;
+  string key = 2 [(buf.validate.field).string.min_len = 1];
+  string operation = 3 [(buf.validate.field).string.min_len = 1];
+  repeated values.v1.Value operands = 4 [(buf.validate.field).repeated.items.required = true];
+}
+
+message MutateResponse {
+  values.v1.Value value = 1 [(buf.validate.field).required = true];
+}
+
+message GetRequest {
+  string project_id = 1;
+  repeated string keys = 2 [(buf.validate.field).repeated.items.string.min_len = 1];
+}
+
+message GetResponse {
+  map<string, values.v1.Value> values = 1 [(buf.validate.field).map = {
+    keys: {
+      string: {min_len: 1}
+    }
+    values: {required: true}
+  }];
+}
+
+message ListRequest {
+  string project_id = 1;
+}
+
+message ListResponse {
+  repeated string keys = 1 [(buf.validate.field).repeated.items.string.min_len = 1];
+}

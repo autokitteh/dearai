@@ -1,0 +1,28 @@
+# Negative tests: get nonexistent integration name/ID, with/out --fail flag.
+ak integration get foo
+return code == 0
+output equals ''
+
+ak integration get integration_deadbeefdeadbeefdeadbe
+return code == 0
+output equals ''
+
+ak integration get foo --fail
+output equals 'Error: integration: not_found'
+return code == $RC_NOT_FOUND
+
+ak integration get integration_deadbeefdeadbeefdeadbe --fail
+output equals 'Error: integration: not_found'
+return code == $RC_NOT_FOUND
+
+# Get integration by name.
+ak integration get test
+return code == 0
+output contains 'key:"freeze"'
+
+# Get integration by ID.
+ak integration get int_3kth00testaf9d33c5697341f0
+return code == 0
+output contains 'unique_name:"test"'
+output contains 'display_name:"Test"'
+output contains 'functions:'

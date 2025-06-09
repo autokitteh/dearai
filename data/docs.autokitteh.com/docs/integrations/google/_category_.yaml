@@ -1,0 +1,5 @@
+label: Google
+link:
+  type: generated-index
+  slug: /integrations/google
+  description: "AutoKitteh supports two connection modes: user impersonation with OAuth 2.0, or GCP service account JSON keys."

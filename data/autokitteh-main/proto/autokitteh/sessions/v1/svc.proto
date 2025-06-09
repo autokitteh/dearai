@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package autokitteh.sessions.v1;
+
+import "autokitteh/sessions/v1/session.proto";
+import "autokitteh/values/v1/values.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message StartRequest {
+  option (buf.validate.message).cel = {
+    id: "session.session_id_must_be_empty"
+    message: "session_id must not be specified"
+    expression: "has(this.session) && this.session.session_id == ''"
+  };
+
+  Session session = 1 [(buf.validate.field).required = true];
+
+  // Helper: if set, merged into and overwrites the session's inputs.
+  map<string, string> json_inputs = 2;
+
+  // Helper: if set, merged into and overwrites the session's inputs.
+  // must be a dictionary.
+  string json_object_input = 3;
+}
+
+message StartResponse {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message StopRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+  string reason = 2;
+
+  // !terminate:                          gracefully terminate the session.
+  // terminate && termination_delay == 0: gracefully terminate the session and then immediately
+  //                                      forcefully terminate the session.
+  // terminate && termination_delay > 0:  will gracefully termination first and if not stopped
+  //                                      after delay, will forcefully terminate.
+  bool terminate = 3;
+  google.protobuf.Duration termination_delay = 4;
+}
+
+message StopResponse {}
+
+message ListRequest {
+  string deployment_id = 1;
+  string project_id = 2;
+  string event_id = 3;
+  string build_id = 4;
+  SessionStateType state_type = 5 [(buf.validate.field).enum.defined_only = true];
+  string org_id = 6;
+
+  bool count_only = 10;
+
+  // TODO: FieldMask.
+
+  // If the value is outside the allowed range, the sessions
+  // gRPC service sets it to the closest range bound.
+  int32 page_size = 20;
+
+  int32 skip = 21 [(buf.validate.field).cel = {
+    id: "session.list.skip"
+    message: "Must be >= 0"
+    expression: "this >= 0"
+  }];
+
+  string page_token = 22;
+}
+
+message ListResponse {
+  // Sessions without their data.
+  repeated Session sessions = 1 [(buf.validate.field).repeated.items.required = true];
+  int64 count = 2;
+
+  string next_page_token = 10;
+}
+
+message GetRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+
+  // true: all values returned will be string values
+  //       that contain the native values in JSON format.
+  // false: all values returned are properly boxed.
+  bool json_values = 2;
+
+  // TODO: FieldMask.
+}
+
+message GetResponse {
+  Session session = 1 [(buf.validate.field).required = true];
+}
+
+message GetLogRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+
+  // true: all values returned will be string values
+  //       that contain the native values in JSON format.
+  // false: all values returned are properly boxed.
+  bool json_values = 2;
+
+  // Bitmask: If 0 or 0xFF, include all.
+  SessionLogRecord.Type types = 3;
+
+  bool ascending = 11;
+
+  int32 page_size = 20;
+
+  int32 skip = 21 [(buf.validate.field).cel = {
+    id: "session.list.skip"
+    message: "Must be >= 0"
+    expression: "this >= 0"
+  }];
+
+  string page_token = 22;
+}
+
+message GetLogResponse {
+  reserved 1; // deprecated.
+  int64 count = 2;
+  repeated SessionLogRecord records = 3 [(buf.validate.field).repeated.items.required = true];
+
+  string next_page_token = 10;
+}
+
+message DownloadLogsRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DownloadLogsResponse {
+  bytes data = 1;
+}
+
+message GetPrintsRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+
+  bool ascending = 11;
+
+  int32 page_size = 20;
+
+  int32 skip = 21 [(buf.validate.field).cel = {
+    id: "session.list.skip"
+    message: "Must be >= 0"
+    expression: "this >= 0"
+  }];
+
+  string page_token = 22;
+}
+
+message GetPrintsResponse {
+  message Print {
+    values.v1.Value v = 1;
+    google.protobuf.Timestamp t = 2;
+  }
+
+  repeated Print prints = 1 [(buf.validate.field).repeated.items.required = true];
+
+  string next_page_token = 10;
+}
+
+message DeleteRequest {
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteResponse {}
+
+service SessionsService {
+  rpc Start(StartRequest) returns (StartResponse);
+  // Will always try first to gracefully terminate the session.
+  // Blocks only if `force` and forceDelay > 0`.
+  rpc Stop(StopRequest) returns (StopResponse);
+  // List returns events without their data.
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc GetLog(GetLogRequest) returns (GetLogResponse);
+  rpc DownloadLogs(DownloadLogsRequest) returns (DownloadLogsResponse);
+  rpc GetPrints(GetPrintsRequest) returns (GetPrintsResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+}

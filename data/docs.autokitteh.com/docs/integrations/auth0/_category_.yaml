@@ -1,0 +1,6 @@
+label: Auth0
+link:
+  type: generated-index
+  slug: /integrations/auth0
+  description: "AutoKitteh supports Auth0 connections."
+

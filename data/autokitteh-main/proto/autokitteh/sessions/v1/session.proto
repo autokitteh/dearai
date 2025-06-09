@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package autokitteh.sessions.v1;
+
+import "autokitteh/program/v1/program.proto";
+import "autokitteh/values/v1/values.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+enum SessionStateType { // TODO: Type might not be the best qualifier.
+  SESSION_STATE_TYPE_UNSPECIFIED = 0;
+  SESSION_STATE_TYPE_CREATED = 1;
+  SESSION_STATE_TYPE_RUNNING = 2;
+  SESSION_STATE_TYPE_ERROR = 3;
+  SESSION_STATE_TYPE_COMPLETED = 4;
+  SESSION_STATE_TYPE_STOPPED = 5;
+}
+
+message SessionState {
+  message Created {}
+
+  message Running {
+    string run_id = 1 [(buf.validate.field).required = true];
+    values.v1.Value call = 2; // present if run is a Call.
+  }
+
+  message Error {
+    repeated string prints = 1;
+    program.v1.Error error = 2 [(buf.validate.field).required = true];
+  }
+
+  message Completed {
+    repeated string prints = 1;
+    map<string, values.v1.Value> exports = 2 [
+      (buf.validate.field).map.keys.string.min_len = 1,
+      (buf.validate.field).map.values.required = true
+    ];
+    values.v1.Value return_value = 3;
+  }
+
+  message Stopped {
+    string reason = 1;
+  }
+
+  // one of the following is required.
+  Created created = 10;
+  Running running = 11;
+  Error error = 12;
+  Completed completed = 13;
+  Stopped stopped = 14;
+}
+
+message Call {
+  message Spec {
+    values.v1.Value function = 1 [(buf.validate.field).required = true];
+    repeated values.v1.Value args = 2 [(buf.validate.field).repeated.items.required = true];
+    map<string, values.v1.Value> kwargs = 3 [
+      (buf.validate.field).map.keys.string.min_len = 1,
+      (buf.validate.field).map.values.required = true
+    ];
+
+    uint32 seq = 4;
+  }
+
+  message Attempt {
+    message Result {
+      // one of the following is required.
+      values.v1.Value value = 10;
+      program.v1.Error error = 11;
+    }
+
+    message Start {
+      google.protobuf.Timestamp started_at = 1 [(buf.validate.field).required = true];
+      uint32 num = 5;
+    }
+
+    message Complete {
+      google.protobuf.Timestamp completed_at = 1 [(buf.validate.field).required = true];
+      google.protobuf.Duration retry_interval = 2; // deprecated.
+      bool is_last = 3;
+      Result result = 4;
+    }
+
+    Start start = 1;
+    Complete complete = 2;
+  }
+
+  Spec spec = 1 [(buf.validate.field).required = true];
+  repeated Attempt attempts = 2 [(buf.validate.field).repeated.items.required = true];
+}
+
+message SessionLogRecord {
+  // Bitfield.
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PRINT = 1; // deprecated, avoid.
+    TYPE_CALL_SPEC = 2;
+    TYPE_CALL_ATTEMPT_START = 4;
+    TYPE_CALL_ATTEMPT_COMPLETE = 8;
+    TYPE_STATE = 16;
+    TYPE_STOP_REQUEST = 32;
+  }
+
+  message Print {
+    string text = 1; // deprecated, use value instead.
+
+    values.v1.Value value = 2;
+
+    // for prints that happened inside an activity.
+    uint32 call_seq = 3;
+  }
+
+  message StopRequest {
+    string reason = 2;
+  }
+
+  google.protobuf.Timestamp t = 1;
+  string process_id = 2;
+
+  // one of the following is required.
+  Print print = 10; // deprecated, avoid.
+  Call.Spec call_spec = 11;
+  Call.Attempt.Start call_attempt_start = 12;
+  Call.Attempt.Complete call_attempt_complete = 13;
+  SessionState state = 14;
+  StopRequest stop_request = 15;
+}
+
+message Session {
+  string session_id = 1;
+  string build_id = 2;
+  string project_id = 3;
+
+  program.v1.CodeLocation entrypoint = 4 [(buf.validate.field).required = true];
+
+  map<string, values.v1.Value> inputs = 5 [
+    (buf.validate.field).map.keys.string.min_len = 1,
+    (buf.validate.field).map.values.required = true
+  ];
+
+  string parent_session_id = 6;
+
+  map<string, string> memo = 7;
+
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+
+  SessionStateType state = 12;
+
+  // These are for auditing/searches only.
+  string deployment_id = 20;
+  string event_id = 21;
+}

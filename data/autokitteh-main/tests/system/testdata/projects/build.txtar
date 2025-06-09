@@ -1,0 +1,47 @@
+# Negative tests: build nonexistent project, by name/ID.
+ak project build bad_project --file program.star
+output equals 'Error: project: not_found'
+return code == $RC_NOT_FOUND
+
+# Precondition: create project.
+ak project create --name my_project
+return code == 0
+output equals 'project_id: prj_00000000000000000000000001'
+
+# Negative test: build project without required flag.
+ak project build my_project
+output equals 'Error: at least one of the flags in the group [dir file] is required'
+return code == 1
+
+# Negative test: build project with nonexistent files and directories.
+ak project build my_project --file bad_filename
+output equals 'Error: stat bad_filename: no such file or directory'
+return code == $RC_NOT_FOUND
+
+ak project build my_project --dir bad_dir_name
+output equals 'Error: stat bad_dir_name: no such file or directory'
+return code == $RC_NOT_FOUND
+
+# Build project from a single file.
+ak project build my_project --file single_file.star
+return code == 0
+
+# Build project from a directory tree with multiple files.
+ak project build my_project --dir directory
+return code == 0
+
+# Build project from both, alongside each other.
+ak project build my_project --file single_file.star --file directory
+return code == 0
+
+-- single_file.star --
+print("single_file.star")
+
+-- directory/file1.star --
+print("directory/file1.star")
+
+-- directory/subdirectory/file1.star --
+print("directory/subdirectory/file1.star")
+
+-- directory/subdirectory/file2.star --
+print("directory/subdirectory/file2.star")

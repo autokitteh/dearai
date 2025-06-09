@@ -1,0 +1,50 @@
+{{ define "footer_" }}
+
+<div class="footer">
+    <p><tt>{{ ProcessID }} | up {{ Uptime }} | req {{ Duration }} | {{ dateInZone "2006-01-02 15:04:05" (now) "UTC" }} UTC</tt></p>
+</div>
+
+<script>
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const msg = urlParams.get('msg');
+
+    if (msg) {
+        document.getElementById('message-container').style.display = 'block';
+        document.getElementById('message').innerHTML = msg;
+    }
+
+    function viewTab(which) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+        document.getElementById(which).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+</script>
+
+<script type="module">
+    import { JSONEditor } from '/static/vanilla-jsoneditor.js'
+
+    document.querySelectorAll('.jsoneditor').forEach((element) => {
+        let content = { json: JSON.parse(element.innerText), text: undefined }
+        element.innerHTML = ''
+        new JSONEditor({
+            target: element,
+            props: { content, mode: 'view' },
+        })
+    })
+</script>
+
+</body>
+
+</html>
+
+{{ end }}

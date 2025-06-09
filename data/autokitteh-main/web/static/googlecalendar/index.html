@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AutoKitteh - Google Calendar - New Connection</title>
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/static/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/static/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/static/favicon-16x16.png"
+    />
+    <link rel="manifest" href="/static/site.webmanifest" />
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <meta name="robots" content="noindex, nofollow" />
+    <script src="form.js" defer></script>
+  </head>
+
+  <body>
+    <a href="/" target="_self">
+      <img class="banner" src="/static/banner.svg" alt="AutoKitteh" />
+    </a>
+
+    <table class="title">
+      <td>
+        <img class="logo" src="/static/images/google_calendar.svg" alt="Logo" />
+      </td>
+      <td>
+        <h1>Google Calendar - Create a New Connection</h1>
+      </td>
+    </table>
+
+    <div class="toggle-container">
+      <button class="toggle" id="toggletab1" onclick="toggleTab('tab1')">
+        User (OAuth 2.0)
+      </button>
+      <span class="toggle-sep"></span>
+      <button class="toggle" id="toggletab2" onclick="toggleTab('tab2')">
+        Service Account (JSON Key)
+      </button>
+    </div>
+
+    <div class="tab" id="tab1">
+      <p class="info">Information:</p>
+      <ul class="links">
+        <li>
+          <a
+            href="https://docs.autokitteh.com/integrations/google/config"
+            target="_blank"
+            class="info"
+          >
+            AutoKitteh guide: configuring Google integrations
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://developers.google.com/workspace/guides/auth-overview"
+            target="_blank"
+            class="info"
+          >
+            Learn about authentication and authorization
+          </a>
+        </li>
+      </ul>
+
+      <!-- TODO(ENG-799): remove ID once its unused -->
+      <form id="save-form-oauth" method="post" action="/google/save">
+        <input type="hidden" name="auth_type" value="oauth" />
+        <input type="hidden" name="auth_scopes" value="calendar" />
+
+        <div class="form-group">
+          <label for="cal_id">Optional: Calendar ID (To Receive Events, e.g. "primary")</label>
+          <input
+            type="text"
+            id="calIdOauth"
+            name="cal_id"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="form-group">
+          <p class="info">
+            Click the button below to authorize the
+            <strong>AutoKitteh</strong> service
+          </p>
+        </div>
+
+        <button type="submit" class="submit-btn">Start OAuth Flow</button>
+      </form>
+    </div>
+
+    <div class="tab" id="tab2">
+      <p class="info">Information:</p>
+      <ul class="links">
+        <li>
+          <a
+            href="https://cloud.google.com/iam/docs/service-account-overview"
+            target="_blank"
+            class="info"
+          >
+            GCP service accounts overview
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://cloud.google.com/iam/docs/service-account-creds"
+            target="_blank"
+            class="info"
+          >
+            Service account credentials
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://cloud.google.com/iam/docs/keys-create-delete"
+            target="_blank"
+            class="info"
+          >
+            Create and delete service account keys
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys"
+            target="_blank"
+            class="info"
+          >
+            Best practices for managing service account keys
+          </a>
+        </li>
+      </ul>
+
+      <!-- TODO(ENG-799): remove ID once its unused -->
+      <form id="save-form-json" method="post" action="/google/save">
+        <input type="hidden" name="auth_type" value="json" />
+
+        <div class="form-group">
+          <label for="cal_id">Optional: Calendar ID (To Receive Events, e.g. "primary")</label>
+          <input
+            type="text"
+            id="calIdJson"
+            name="cal_id"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="json">JSON Key</label>
+          <textarea
+            name="json"
+            rows="8"
+            cols="64"
+            wrap="soft"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          ></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn">Save Connection</button>
+      </form>
+    </div>
+
+    <!-- TODO(ENG-799) -->
+    <script>
+      const queryString = window.location.search;
+      document
+        .getElementById("save-form-json")
+        .setAttribute("action", "/google/save" + queryString);
+      document
+        .getElementById("save-form-oauth")
+        .setAttribute("action", "/google/save" + queryString);
+    </script>
+  </body>
+</html>

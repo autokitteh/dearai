@@ -1,0 +1,38 @@
+"""Un/subscribe and consume AutoKitteh connection events."""
+from datetime import timedelta
+from uuid import uuid4
+from .attr_dict import AttrDict
+
+
+def subscribe(source: str, filter: str='') ->str:
+    """Subscribe to events on connection. Optional filter is a CEL expression.
+
+    Cannot be used in an activity."""
+    ...
+
+
+def unsubscribe(subscription_id: str) ->None:
+    """Unsubscribe from events.
+
+    Cannot be used in an activity."""
+    ...
+
+
+def next_event(subscription_id: (str | list[str]), *, timeout: (timedelta |
+    int | float)=None) ->AttrDict:
+    """Get the next event from the subscription(s).
+
+    If timeout is not None and there are no new events after timeout, this function will
+    return None.
+
+    Cannot be used in an activity.
+    """
+    ...
+
+
+def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
+    project: str='') ->str:
+    """Start a new session.
+
+    Cannot be used in an activity."""
+    ...

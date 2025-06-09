@@ -1,0 +1,151 @@
+{{ define "header_" }}
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>{{ .Title }}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png" />
+    <link rel="manifest" href="/static/site.webmanifest" />
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+
+    <style>
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            color: rgb(42, 42, 42);
+            text-align: center;
+            font-size: small;
+        }
+
+        .navbar ul {
+            list-style-type: none;
+            margin: 0;
+            margin-bottom: 10px;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333;
+        }
+
+        .navbar ul li {
+            float: left;
+        }
+
+        .navbar ul li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+
+        .navbar ul li a:hover {
+            background-color: #111;
+        }
+
+        .navbar ul li.inert a:hover {
+            background-color: #333;
+            text-decoration: none;
+        }
+
+        .message {
+            padding: 20px;
+            background-color: rgb(79, 117, 90);
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .closebtn {
+            margin-left: 15px;
+            color: white;
+            font-weight: bold;
+            float: right;
+            font-size: 22px;
+            line-height: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        /* When moving the mouse over the close button */
+        .closebtn:hover {
+            color: black;
+        }
+
+        /* Right-aligned section inside the top navigation */
+        .topnav-right {
+            float: right;
+        }
+
+        /* Style the tab */
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+        }
+
+        /* Style the buttons inside the tab */
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            font-size: 17px;
+        }
+
+        /* Change background color of buttons on hover */
+        .tab button:hover {
+            background-color: #ddd;
+        }
+
+        /* Create an active/current tablink class */
+        .tab button.active {
+            background-color: #ccc;
+        }
+
+        /* Style the tab content */
+        .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navbar">
+        <ul>
+            <li class="inert"><a target="_self">autokitteh <tt>{{ Version }}</tt></a></li>
+            <li><a href="/internal/dashboard/projects">projects</a></li>
+            <li><a href="/internal/dashboard/connections">connections</a></li>
+            <li><a href="/internal/dashboard/integrations">integrations</a></li>
+            <li><a href="/internal/dashboard/triggers">triggers</a></li>
+            <li><a href="/internal/dashboard/deployments">deployments</a></li>
+            <li><a href="/internal/dashboard/builds">builds</a></li>
+            <li><a href="/internal/dashboard/sessions">sessions</a></li>
+            <li><a href="/internal/dashboard/events">events</a></li>
+
+            <div class="topnav-right">
+                {{ if User }}
+                <li class="inert"><a href="/internal/dashboard/auth"><tt>{{ User }}</tt></a></li>
+                {{ else }}
+                <li><a href="/login">login</a></li>
+                {{ end }}
+            </div>
+        </ul>
+    </div>
+
+    <div id="message-container" class="message" style="display: none">
+        <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>
+        <span id="message"></span>
+    </div>
+
+    {{ end }}

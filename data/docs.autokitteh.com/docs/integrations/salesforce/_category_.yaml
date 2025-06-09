@@ -1,0 +1,5 @@
+label: Salesforce
+link:
+  type: generated-index
+  slug: /integrations/salesforce
+  description: "AutoKitteh currently supports only one connection mode: private OAuth 2.0 apps."

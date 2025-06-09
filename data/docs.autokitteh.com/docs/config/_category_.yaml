@@ -1,0 +1,6 @@
+position: 6
+label: Server Configuration
+link:
+  type: generated-index
+  slug: /config
+  description: Advanced server configuration options.
