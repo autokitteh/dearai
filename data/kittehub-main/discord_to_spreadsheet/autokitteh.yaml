@@ -1,0 +1,26 @@
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that logs messages from Discord to a
+# Google Sheets document.
+
+version: v1
+
+project:
+  name: discord_to_spreadsheet
+
+  vars:
+    - name: RANGE_NAME
+      value: Sheet1!A1
+    - name: SPREADSHEET_ID
+      value:
+
+  connections:
+    - name: discord_conn
+      integration: discord
+    - name: googlesheets_conn
+      integration: googlesheets
+
+  triggers:
+    - name: on_discord_message
+      connection: discord_conn
+      event_type: message_create
+      call: program.py:on_discord_message

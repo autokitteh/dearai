@@ -1,0 +1,8 @@
+pytest
+pytest-mock
+ruff
+
+autokitteh
+google-auth
+PyGithub
+slack-sdk

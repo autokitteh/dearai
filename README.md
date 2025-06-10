@@ -1,2 +1,12 @@
-# dearai
-knowledge repository for llms about how to use autokitteh
+# Dear AI
+
+Add the `dearai` folder or `dearai.txt` to your favorite LLM to learn how to use AutoKitteh.
+
+## How this works
+
+```
+$ make
+```
+
+Will remove and recreate `dearai/` from files in `src/`. Each file in `src/` runs through `jinja2`.
+All files that start with `_` are not processed, but can be used as inputs to other files, for example via `{% include ... %}` directives.

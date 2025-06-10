@@ -1,0 +1,13 @@
+# This YAML file is a declarative manifest that describes
+# the minimal setup of an AutoKitteh project.
+
+version: v1
+
+project:
+  name: quickstart
+
+  triggers:
+    - name: quickstart_webhook
+      type: webhook
+      event_type: get
+      call: program.py:quickstart
