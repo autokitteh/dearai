@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+builds:
+  - id: ak
+    binary: ak
+    main: ./cmd/ak
+    ldflags:
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Version={{ .Version }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Time={{ .Date }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Commit={{ .Commit }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.User=GoReleaser'
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: ak-ee
+    binary: ak-ee
+    main: ./cmd/ak
+    ldflags:
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Version={{ .Version }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Time={{ .Date }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.Commit={{ .Commit }}'
+      - -X 'go.autokitteh.dev/autokitteh/internal/version.User=GoReleaser'
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -tags=enterprise
+
+brews:
+  - name: autokitteh
+    ids:
+      - ak
+    description: "Durable workflow automation in just a few lines of code"
+    homepage: "https://autokitteh.com/"
+    license: "Apache-2.0"
+
+    url_template: "https://github.com/autokitteh/autokitteh/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    install: |
+      bin.install "ak"
+      generate_completions_from_executable(bin/"ak", "completion")
+    test: |
+      system "#{bin}/ak version"
+
+    repository:
+      owner: autokitteh
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    directory: Formula
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "{{ .ProjectName }} {{ .Version }}"
+
+source:
+  enabled: false
+
+release:
+  prerelease: auto
+
+archives:
+  - id: ak
+    ids: 
+      - ak
+    files:
+      - none*
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ tolower .ProjectName }}_{{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+  - id: ak-ee
+    ids: 
+      - ak-ee
+    files:
+      - none*
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ tolower .ProjectName }}_ee_{{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}

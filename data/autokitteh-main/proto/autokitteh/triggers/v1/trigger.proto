@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package autokitteh.triggers.v1;
+
+import "autokitteh/program/v1/program.proto";
+
+message Trigger {
+  enum SourceType {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    SOURCE_TYPE_CONNECTION = 1;
+    SOURCE_TYPE_WEBHOOK = 2;
+    SOURCE_TYPE_SCHEDULE = 3;
+  }
+
+  string trigger_id = 1;
+  string name = 2;
+  SourceType source_type = 3;
+  string project_id = 4;
+  string event_type = 5;
+  program.v1.CodeLocation code_location = 6;
+  string filter = 7;
+
+  string connection_id = 50; // if source_type == CONNECTION.
+  string schedule = 51; // if source_type == SCHEDULE.
+
+  // read only.
+  string webhook_slug = 100; // if source_type == WEBHOOK, after creation.
+}

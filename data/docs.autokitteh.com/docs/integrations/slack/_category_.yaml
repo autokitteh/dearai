@@ -1,0 +1,5 @@
+label: Slack
+link:
+  type: generated-index
+  slug: /integrations/slack
+  description: "AutoKitteh supports two connection modes, both using Slack apps: OAuth v2, and Socket Mode."

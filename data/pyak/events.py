@@ -1,0 +1,27 @@
+"""Un/subscribe and consume AutoKitteh connection events."""
+
+
+def subscribe(source: str, filter: str='') ->str:
+    """Subscribe to events on connection. Optional filter is a CEL expression."""
+    ...
+
+
+def unsubscribe(subscription_id: str) ->None:
+    """Unsubscribe from events."""
+    ...
+
+
+def next_event(subscription_id: (str | list[str]), *, timeout: (timedelta |
+    int | float)=None) ->AttrDict:
+    """Get the next event from the subscription(s).
+
+    If timeout is not None and there are no new events after timeout, this function will
+    return None.
+    """
+    ...
+
+
+def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
+    project: str='') ->str:
+    """Start a new session."""
+    ...

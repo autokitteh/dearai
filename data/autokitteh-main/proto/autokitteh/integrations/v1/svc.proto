@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package autokitteh.integrations.v1;
+
+import "autokitteh/common/v1/status.proto";
+import "autokitteh/integrations/v1/integration.proto";
+import "autokitteh/program/v1/program.proto";
+import "autokitteh/values/v1/values.proto";
+import "buf/validate/validate.proto";
+
+message GetRequest {
+  option (buf.validate.message).cel = {
+    id: "integration_id_xor_name"
+    message: "integration_id and name are mutually exclusive"
+    expression: "(this.integration_id == '' && this.name != '') || (this.integration_id != '' && this.name == '')"
+  };
+
+  string integration_id = 1;
+  string name = 2;
+}
+
+message GetResponse {
+  integrations.v1.Integration integration = 1;
+}
+
+// All filering fields are optional.
+message ListRequest {
+  string name_substring = 1;
+  reserved 2; // TODO: tag search term
+}
+
+message ListResponse {
+  repeated integrations.v1.Integration integrations = 1 [(buf.validate.field).repeated.items.required = true];
+}
+
+message CallRequest {
+  string integration_id = 1 [(buf.validate.field).string.min_len = 1];
+  values.v1.Value function = 2 [(buf.validate.field).required = true];
+  repeated values.v1.Value args = 3 [(buf.validate.field).repeated.items.required = true];
+  map<string, values.v1.Value> kwargs = 4 [(buf.validate.field).map = {
+    keys: {
+      string: {min_len: 1}
+    }
+    values: {required: true}
+  }];
+}
+
+message CallResponse {
+  values.v1.Value value = 1;
+  program.v1.Error error = 2;
+}
+
+message ConfigureRequest {
+  string integration_id = 1 [(buf.validate.field).string.min_len = 1];
+  string connection_id = 2;
+}
+
+message ConfigureResponse {
+  map<string, string> config = 1;
+  map<string, values.v1.Value> values = 4 [(buf.validate.field).map = {
+    keys: {
+      string: {min_len: 1}
+    }
+    values: {required: true}
+  }];
+}
+
+message TestConnectionRequest {
+  string integration_id = 1 [(buf.validate.field).string.min_len = 1];
+  string connection_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message TestConnectionResponse {
+  common.v1.Status status = 1 [(buf.validate.field).required = true];
+}
+
+message GetConnectionStatusRequest {
+  string integration_id = 1 [(buf.validate.field).string.min_len = 1];
+  string connection_id = 2; // if not provided, will return the status of a new connection.
+}
+
+message GetConnectionStatusResponse {
+  common.v1.Status status = 1 [(buf.validate.field).required = true];
+}
+
+message GetConnectionConfigRequest {
+  string integration_id = 1 [(buf.validate.field).string.min_len = 1];
+  string connection_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetConnectionConfigResponse {
+  map<string, string> config = 1;
+}
+
+// Implemented by integration providers.
+service IntegrationsService {
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc List(ListRequest) returns (ListResponse);
+
+  // Get all values for a specific configuration of the integration.
+  // The returned values ExecutorIDs will be the integration id.
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+
+  // Actively test the connection to the integration.
+  // requires supports_connection_test.
+  rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+
+  // If connection_id is not provided, will return the status of a new connection as
+  // set in `Integration.initial_connection_status`.
+  rpc GetConnectionStatus(GetConnectionStatusRequest) returns (GetConnectionStatusResponse);
+
+  rpc GetConnectionConfig(GetConnectionConfigRequest) returns (GetConnectionConfigResponse);
+
+  rpc Call(CallRequest) returns (CallResponse);
+}

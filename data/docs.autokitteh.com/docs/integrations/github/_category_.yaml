@@ -1,0 +1,5 @@
+label: GitHub
+link:
+  type: generated-index
+  slug: /integrations/github
+  description: "AutoKitteh supports two connection modes: a server-wide GitHub app using OAuth 2.0, or connection-specific Personal Access Tokens (PATs - either fine-grained or classic) and/or manually-configured webhooks."

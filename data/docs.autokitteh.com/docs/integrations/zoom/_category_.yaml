@@ -1,0 +1,5 @@
+label: Zoom
+link:
+  type: generated-index
+  slug: /integrations/zoom
+  description: "AutoKitteh supports two connection modes, both using Zoom apps: OAuth 2.0, and Server-to-Server."

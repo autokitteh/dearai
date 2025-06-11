@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package autokitteh.events.v1;
+
+import "autokitteh/events/v1/event.proto";
+import "buf/validate/validate.proto";
+
+message SaveRequest {
+  option (buf.validate.message).cel = {
+    id: "events.missing_destination_id"
+    message: "missing destination_id"
+    expression: "has(this.event) && this.event.destination_id != ''"
+  };
+
+  option (buf.validate.message).cel = {
+    id: "events.event_id_must_be_empty"
+    message: "event_id must not be specified"
+    expression: "has(this.event) && this.event.event_id == ''"
+  };
+
+  Event event = 1;
+
+  // TODO: auth.
+}
+
+message SaveResponse {
+  string event_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetRequest {
+  string event_id = 1 [(buf.validate.field).string.min_len = 1];
+
+  // true: all values returned will be string values
+  //       that contain the native values in JSON format.
+  // false: all values returned are properly boxed.
+  bool json_values = 2;
+}
+
+message GetResponse {
+  Event event = 1;
+}
+
+message ListRequest {
+  string integration_id = 1;
+  string destination_id = 2;
+  string event_type = 3;
+  uint32 max_results = 4;
+  string order = 5; // ASC or DESC values are supported
+  string project_id = 7;
+  string org_id = 8;
+
+  // see GetRequest.json_values.
+  bool json_values = 6;
+}
+
+message ListResponse {
+  // Events without their data.
+  repeated Event events = 1;
+}
+
+service EventsService {
+  rpc Save(SaveRequest) returns (SaveResponse);
+
+  rpc Get(GetRequest) returns (GetResponse);
+
+  // List returns events without their data.
+  rpc List(ListRequest) returns (ListResponse);
+}

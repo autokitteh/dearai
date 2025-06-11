@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package autokitteh.builds.v1;
+
+import "autokitteh/builds/v1/build.proto";
+import "buf/validate/validate.proto";
+
+message GetRequest {
+  string build_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetResponse {
+  Build build = 1;
+}
+
+message ListRequest {
+  uint32 limit = 1;
+  string project_id = 2;
+}
+
+message ListResponse {
+  // Chronological order: the last element is the latest.
+  repeated Build builds = 1 [(buf.validate.field).repeated.items.required = true];
+}
+
+message SaveRequest {
+  option (buf.validate.message).cel = {
+    id: "builds.build_id_must_be_empty"
+    message: "build_id must not be specified"
+    expression: "has(this.build) && this.build.build_id == ''"
+  };
+
+  Build build = 1;
+
+  bytes data = 2 [(buf.validate.field).bytes.min_len = 1];
+}
+
+message SaveResponse {
+  string build_id = 1;
+}
+
+message DeleteRequest {
+  string build_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteResponse {}
+
+message DownloadRequest {
+  string build_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DownloadResponse {
+  bytes data = 1;
+}
+
+message DescribeRequest {
+  string build_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DescribeResponse {
+  string description_json = 1;
+}
+
+service BuildsService {
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Save(SaveRequest) returns (SaveResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Download(DownloadRequest) returns (DownloadResponse);
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+}

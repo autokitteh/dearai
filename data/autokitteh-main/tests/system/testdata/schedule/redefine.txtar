@@ -1,0 +1,57 @@
+# create scheduler trieer, redefine it as normal trigger and redefine once again as scheduler one
+
+ak deploy --manifest schedule.yaml --file cron.star
+return code == 0
+
+ak trigger list -j -p cron
+return code == 0
+output equals_json file triggers.json
+
+wait 5s for session ses_00000000000000000000000007
+ak session prints ses_00000000000000000000000007 --no-timestamps
+return code == 0
+output equals 'cron'
+
+# redefine trigger (scheduler trigger -> normal)
+ak deploy --manifest trigger.yaml --file cron.star
+return code == 1
+output contains 'source type cannot be updated'
+
+-- schedule.yaml --
+version: v1
+project:
+  name: cron
+  triggers:
+    - name: cron
+      schedule: "*/1 * * * * * *"  # every sec
+      call: cron.star:on_cron_trigger
+
+-- trigger.yaml --
+version: v1
+project:
+  name: cron
+  connections:
+  - name: test
+    integration: test
+  triggers:
+    - name: cron
+      connection: test
+      event_type: get
+      call: cron.star:on_cron_trigger
+
+-- cron.star --
+def on_cron_trigger():
+    print("cron")
+
+-- triggers.json --
+{
+  "trigger_id": "trg_00000000000000000000000002",
+  "name": "cron",
+  "source_type": "SOURCE_TYPE_SCHEDULE",
+  "project_id": "prj_00000000000000000000000001",
+  "code_location": {
+    "path": "cron.star",
+    "name": "on_cron_trigger"
+  },
+  "schedule": "*/1 * * * * * *"
+}

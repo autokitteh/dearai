@@ -1,0 +1,5 @@
+label: Linear
+link:
+  type: generated-index
+  slug: /integrations/linear
+  description: "AutoKitteh supports two connection modes: OAuth 2.0 (user or bot) apps, and API keys."

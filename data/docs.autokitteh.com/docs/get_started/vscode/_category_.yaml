@@ -1,0 +1,7 @@
+position: 5
+label: VS Code
+link:
+  type: generated-index
+  slug: /get_started/vscode
+  title: Visual Studio Code Extension
+  description: Basic step-by-step tutorials for new users about the GUI client alternative to the AutoKitteh CLI tool.

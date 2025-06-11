@@ -1,0 +1,5 @@
+label: Atlassian
+link:
+  type: generated-index
+  slug: /integrations/atlassian
+  description: "AutoKitteh can integrate with Confluence and Jira. For each of them, it supports Atlassian Cloud (https://*.atlassian.net) as well as on-prem servers. AutoKitteh supports two connection modes: OAuth 2.0 (3LO) apps, or user impersonation with API tokens or Personal Access Tokens (PATs)."

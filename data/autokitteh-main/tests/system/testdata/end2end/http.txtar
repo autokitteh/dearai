@@ -1,0 +1,100 @@
+# Deploy project with HTTP triggers that check session data.
+ak deploy --manifest project.yaml
+return code == 0
+
+# Send HTTP GET request to trigger deployment to start new session.
+http get /webhooks/00000000000000000000000003/
+resp code == 202
+
+wait 5s for session ses_00000000000000000000000007
+
+ak session log my_project --no-timestamps --page-size 1 --order desc -J
+return code == 0
+output equals_json file expected_without_path.json
+
+# Send HTTP POST request to trigger deployment to start new session.
+http post /webhooks/00000000000000000000000003/test/aaa/bbb/ccc
+resp code == 202
+
+wait 5s for session ses_0000000000000000000000000a
+
+ak session log my_project --no-timestamps --page-size 1 --order desc -J
+return code == 0
+output equals_json file expected_with_path.json
+
+-- project.yaml --
+version: v1
+
+project:
+  name: my_project
+  triggers:
+    - name: http
+      type: webhook
+      call: program.star:on_http
+
+-- program.star --
+def on_http(data):
+    print(data["method"])
+    print(data["body"])
+
+-- expected_without_path.json --
+{
+    "state": {
+        "completed": {
+            "prints": [
+                "GET",
+                "{\"form\": None, \"text\": None, \"bytes\": None, \"json\": None}"
+            ],
+            "exports": {
+                "on_http": {
+                    "function": {
+                        "executor_id": "run_00000000000000000000000008",
+                        "name": "on_http",
+                        "desc": {
+                            "input": [
+                                {
+                                    "name": "data"
+                                }
+                            ]
+                        },
+                        "data": "b25faHR0cCMx"
+                    }
+                }
+            },
+            "return_value": {
+                "nothing": {}
+            }
+        }
+    }
+}
+
+-- expected_with_path.json --
+{
+    "state": {
+        "completed": {
+            "prints": [
+                "POST",
+                "{\"form\": None, \"text\": None, \"bytes\": None, \"json\": None}"
+            ],
+            "exports": {
+                "on_http": {
+                    "function": {
+                        "executor_id": "run_0000000000000000000000000b",
+                        "name": "on_http",
+                        "desc": {
+                            "input": [
+                                {
+                                    "name": "data"
+                                }
+                            ]
+                        },
+                        "data": "b25faHR0cCMx"
+                    }
+                }
+            },
+            "return_value": {
+                "nothing": {}
+            }
+        }
+    }
+}

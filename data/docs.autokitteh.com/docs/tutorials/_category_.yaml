@@ -1,0 +1,5 @@
+position: 9
+label: Tutorials
+link:
+  type: generated-index
+  slug: /tutorials

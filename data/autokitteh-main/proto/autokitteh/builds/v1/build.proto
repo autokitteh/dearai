@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package autokitteh.builds.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Build {
+  string build_id = 1;
+  string project_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+}

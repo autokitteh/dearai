@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package autokitteh.events.v1;
+
+import "autokitteh/values/v1/values.proto";
+import "google/protobuf/timestamp.proto";
+
+message Event {
+  string event_id = 1;
+
+  string destination_id = 2; // connection_id or trigger_id.
+
+  string event_type = 3;
+
+  map<string, values.v1.Value> data = 4;
+
+  map<string, string> memo = 5;
+
+  google.protobuf.Timestamp created_at = 6;
+
+  uint64 seq = 7;
+}

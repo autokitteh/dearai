@@ -1,0 +1,27 @@
+# Precondition: create project.
+ak project create --name my_project
+return code == 0
+output equals 'project_id: prj_00000000000000000000000001'
+
+ak var set key val -p my_project
+return code == 0
+
+ak var get key -p my_project
+return code == 0
+output equals 'key="val"'
+
+ak var set key updated -p my_project
+return code == 0
+
+ak var get key -p my_project
+return code == 0
+output equals 'key="updated"'
+
+# Set secret var
+ak var set key_secret secret_value -p my_project --secret
+return code == 0
+
+# Reveal secret value
+ak var get key_secret -p my_project --reveal
+return code == 0
+output equals 'key_secret="secret_value"'

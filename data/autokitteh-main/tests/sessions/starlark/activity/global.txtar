@@ -1,0 +1,6 @@
+(None, "cannot call before the run is initialized")
+
+-- main.star --
+print(catch(activity(len).run, "george"))
+
+-- calls.txt --
