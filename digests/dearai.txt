@@ -1,14 +1,24 @@
 Dear AI, this digest is a summary of everything you need to know about AutoKitteh in order to use it effectively.
 
-Start by going through `README.md`, then over all the sample projects under directory `samples/`.
-The AutoKitteh Python SDK available for projects code is at `pyak/`.
-For integration specific guidance, see the different files under `integrations/`.
-With ❤️, The Kittehs.
+- OVERVIEW.md contains a general overview about what AutoKitteh is.
+- MODEL.md explains about AutoKitteh's data model.
+- MANIFEST.md details the structure of a manifest which is used to define projects.
+- INTEGRATIONS.md gives a list of supported integrations.
+- CODE.md explains how to write code for projects.
+- pyak/ contains the AutoKitteh Python SDK defintions.
+- integrations/ contains files with integration specific instructions.
+- samples/ contains important code samples.
+
+With ❤️ and 🐈s, The Kittehs.
 
 ---
 Directory structure:
 └── dearai/
-    ├── README.md
+    ├── CODE.md
+    ├── INTEGRATIONS.md
+    ├── MANIFEST.md
+    ├── MODEL.md
+    ├── OVERVIEW.md
     ├── integrations/
     │   ├── GITHUB.md
     │   ├── GMAIL.md
@@ -52,428 +62,8 @@ Directory structure:
             └── program.py
 
 ================================================
-File: README.md
+File: CODE.md
 ================================================
-# AutoKitteh Overview
-
-AutoKitteh is a "serverless" platform to build and deploy durable workflows.
-Durable workflows are long-running processes that automatically resume after interruptions.
-
-Important Sites:
-
-- https://autokitteh.com for general information about AutoKitteh.
-- https://autokitteh.cloud, a SaaS deployment of autokitteh that is publicly available.
-
-# Model: Entities & Relationships
-
-- PROJECT has RESOURCEs, CONNECTIONs, TRIGGERs, and VARIABLEs as configuration.
-- AutoKitteh supports a number of native INTEGRATIONs.
-- an INTEGRATION is a native implementation of an interface to an external system, such as Linear, Slack, etc.
-- CONNECTION is a connection to a third-party service using an INTEGRATION, such as Slack, JIRA, Linear, etc.
-  a CONNECTION is always associated with an INTEGRATION.
-  a CONNECTION can have mutliple TRIGGERs defined on it.
-- a DEPLOYMENT is a deployed version of a PROJECT.
-- EVENTs are sent by CONNECTIONs. TRIGGERs define what to do with EVENTs. An EVENT consists on JSON formatted data.
-- a SESSION starts when a DEPLOYMENT is triggered by a TRIGGER. a SESSION a workflow being run.
-- RESOURCE is a source code file, but can be also any file type, like a yaml or json files.
-- TRIGGER is a trigger to start a workflow, such as a CONNECTION event, webhook or a SCHEDULE.
-  - WEBHOOK and SCHEDULE triggers do not require a CONNECTION.
-  - CONNECTION event triggers require a CONNECTION.
-- VARIABLE is a key-value pair that is defined in the project and can be used in the workflow.
-
-## Integrations
-
-The following integration names are supported:
-- asana
-- auth0
-- aws
-- chatgpt
-- confluence
-- discord
-- github
-- gmail
-- googlecalendar
-- googledrive
-- googleforms
-- googlegemini
-- googlesheets
-- height
-- hubspot
-- jira
-- slack
-- twilio
-- zoom
-
-
-## Connections
-
-A CONNECTION is created in order to either receive events from an external application (such as Slack, JIRA, etc) or to perform some operation on an external service.
-
-Certain CONNECTIONs need to be initialized after creation in order for them to function. Often, the initialization means establishing authentication with the external application. For example, if creating either a Slack or GitHub connection, the user is expected to initialize the connection using OAuth, which AutoKitteh supplies a UI for for. Another authentication method, in case of Slack or GitHub, can be using a PAT, which AutoKitteh allows to fill in the connection view.
-
-## Triggers
-
-A TRIGGER can be of one of several types.
-
-- Webhook Trigger: when it is created, AutoKitteh generates a unique URL that when it is hit, the trigger will be invoked.
-- Schedule Trigger: runs on a schedule, defined by a cronspec.
-- Connection Trigger: A third party service sends an event, which when the trigger matches the event - it is invoked.
-
-A TRIGGER can include a FILTER defintion in its `filter` field. The FILTER is specified as a Google CEL expression. The CEL expression takes as input the EVENT payload, under the name `data`. The event type will be under the name `event_type`.
-
-A TRIGGER points to a function execute once is is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT.
-
-### Example: Webhook: Only match with POST JSON requests
-
-```
-name: receive_http_post_json
-type: webhook
-event_type: post
-filter: data.headers["Content-Type"].startsWith("application/json")
-call: webhooks.py:on_http_post_json
-```
-
-### Example: Webhook: Only match with GET or POST requests
-
-```
-name: receive_http_get_or_head
-type: webhook
-filter: data.method in ["GET", "HEAD"]
-call: webhooks.py:on_http_get_or_head
-```
-
-### Example: Slack: Only match `interaction` from a specific user id
-
-```
-name: slack_interaction_from_specific_id
-connection: slack_connection
-filter: event_type == 'interaction' && data.user.id == 'SOME_SLACK_ID'
-```
-
-### Example: Slack: Slack command where its text is "break-glass"
-
-```
-name: break_glass_slack_command
-connection: slack_connection
-event_type: slash_command
-call: program.py:on_slack_slash_command
-filter: data.text == "break-glass"
-```
-
-### Example: GitHub: PR action is either "opened" or "reopened"
-
-```
-name: github_pull_request
-connection: github_conn
-event_type: pull_request
-filter: data.action == "opened" || data.action == "reopened"
-call: program.py:on_github_pull_request
-```
-
-### Example: Schedule Triggers
-
-```
-name: weekly
-schedule: "0 0 * * 1"
-call: program.py:weekly_user_growth
-```
-
-```
-name: weekly
-schedule: @every 1w
-call: program.py:weekly_user_growth
-```
-
-# Sessions
-
-SESSIONs are created as a result of a TRIGGER. A session runs the code in the project, according to the TRIGGER defintion. When a SESSION is being ran, a specific function in its code is being invoked. That function receives the EVENT that triggered it via its argument. If the trigger is a schedule trigger, that event is empty.
-
-IMPORTANT: Session invocation is asynchronic. The CONNECTION or TRIGGER invoking the session do not wait for the result of the session. For example, if a WEBHOOK trigger is invoked, it will ALWAYS return a 202 response, regardless what the session does.
-
-NOTE: A Session is running under the hood as a Temporal Workflow. AutoKitteh knows how to break down the project code running in a session into separate Temporal Activities.
-
-
-# Durability
-
-AutoKitteh projects run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
-
-When a project fails due to infrastructure issues—such as instance crashes or network problems—Temporal uses a REPLAY mechanism. It reruns the entire workflow from the beginning, but leverages the cached activity results to skip re-executing those parts, allowing them to return immediately.
-AutoKitteh analyzes the Abstract Syntax Tree (AST) of project code to intelligently determine which function calls should run as ACTIVITIES and which should not.
-
-# Operation
-
-There are three ways to configure a project:
-
-1. Using an autokitteh.yaml, which is also known as "the project manifest".
-2. Using the CLI.
-3. Using the Web UI.
-
-
-
-
-## Manifest
-
-An AutoKitteh manifest is a yaml or json file that defines how a project is configured.
-It defines the PROJECT, CONNECTIONs, TRIGGERs, and VARIABLEs.
-
-A manifest is "applied" by the user (via CLI, or automatically by the Web Application). When it is applied, it creates or updates the project configuration accordingly.
-
-The manifest is defined according to this schema:
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://go.autokitteh.dev/autokitteh/internal/manifest/manifest",
-  "$ref": "#/$defs/Manifest",
-  "$defs": {
-    "Connection": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "integration": {
-          "type": "string"
-        },
-        "vars": {
-          "items": {
-            "$ref": "#/$defs/Var"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name",
-        "integration"
-      ]
-    },
-    "Manifest": {
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "project": {
-          "$ref": "#/$defs/Project"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "version"
-      ]
-    },
-    "Project": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "connections": {
-          "items": {
-            "$ref": "#/$defs/Connection"
-          },
-          "type": "array"
-        },
-        "triggers": {
-          "items": {
-            "$ref": "#/$defs/Trigger"
-          },
-          "type": "array"
-        },
-        "vars": {
-          "items": {
-            "$ref": "#/$defs/Var"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Trigger": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "event_type": {
-          "type": "string"
-        },
-        "filter": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "enum": [
-            "schedule",
-            "webhook",
-            "connection"
-          ]
-        },
-        "schedule": {
-          "type": "string"
-        },
-        "webhook": {
-          "properties": {},
-          "additionalProperties": false,
-          "type": "object"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "call": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name"
-      ]
-    },
-    "Var": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "secret": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name",
-        "value"
-      ]
-    }
-  }
-}
-```
-
-### Examples
-
-
-
-```yaml
-# This YAML file is a declarative manifest that describes the setup
-# of an AutoKitteh project that demonstrates integration with Auth0.
-
-version: v1
-
-project:
-  name: auth0_sample
-
-  vars:
-    - name: ROLE_ID
-      value:
-    - name: TIME_INTERVAL
-      value: 7d
-
-  connections:
-    - name: auth_conn
-      integration: auth0
-
-  triggers:
-    - name: weekly
-      schedule: 0 0 * * 1
-      call: program.py:weekly_user_growth
-    - name: assign_role_webhook
-      type: webhook
-      event_type: post
-      call: program.py:assign_role
-```
-
-```yaml
-# This YAML file defines a manifest for an AutoKitteh project that
-# creates a Langgraph bot.
-
-version: v1
-
-project:
-  name: Langgraph_Bot
-
-  connections:
-    - name: slack_conn
-      integration: slack
-    - name: sheets_conn
-      integration: googlesheets
-
-  triggers:
-    - name: on_message
-      event_type: app_mention
-      connection: slack_conn
-      call: program.py:on_app_mention
-
-  vars:
-    - name: GOOGLE_API_KEY
-      value: ""
-    - name: TAVILY_API_KEY
-      value: ""
-```
-
-```yaml
-# This YAML file is a declarative manifest that describes the setup
-# of an AutoKitteh project that monitors comments on GitHub issues.
-
-version: v1
-
-project:
-  name: github_issue_alert
-
-  vars:
-    - name: SLACK_CHANNEL_NAME_OR_ID
-      value: github-issues
-
-  connections:
-    - name: slack_conn
-      integration: slack
-    - name: github_conn
-      integration: github
-
-  triggers:
-    - name: on_issue_comment
-      event_type: issue_comment
-      connection: github_conn
-      call: program.py:on_issue_comment
-    - name: on_issue_event
-      event_type: issues
-      connection: github_conn
-      call: program.py:on_issue_event
-```
-
-```yaml
-# This YAML file is a declarative manifest that describes the setup
-# of an AutoKitteh project that logs messages from Discord to a
-# Google Sheets document.
-
-version: v1
-
-project:
-  name: discord_to_spreadsheet
-
-  vars:
-    - name: RANGE_NAME
-      value: Sheet1!A1
-    - name: SPREADSHEET_ID
-      value:
-
-  connections:
-    - name: discord_conn
-      integration: discord
-    - name: googlesheets_conn
-      integration: googlesheets
-
-  triggers:
-    - name: on_discord_message
-      connection: discord_conn
-      event_type: message_create
-      call: program.py:on_discord_message
-```
-
-
-
 
 
 # Code
@@ -1073,6 +663,440 @@ def _write():
 - AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
 
+
+
+================================================
+File: INTEGRATIONS.md
+================================================
+The following integration names are supported:
+- asana
+- auth0
+- aws
+- chatgpt
+- confluence
+- discord
+- github
+- gmail
+- googlecalendar
+- googledrive
+- googleforms
+- googlegemini
+- googlesheets
+- height
+- hubspot
+- jira
+- slack
+- twilio
+- zoom
+
+
+
+
+================================================
+File: MANIFEST.md
+================================================
+
+
+## Manifest
+
+An AutoKitteh manifest is a yaml or json file that defines how a project is configured.
+It defines the PROJECT, CONNECTIONs, TRIGGERs, and VARIABLEs.
+
+A manifest is "applied" by the user (via CLI, or automatically by the Web Application). When it is applied, it creates or updates the project configuration accordingly.
+
+The manifest is defined according to this schema:
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://go.autokitteh.dev/autokitteh/internal/manifest/manifest",
+  "$ref": "#/$defs/Manifest",
+  "$defs": {
+    "Connection": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "integration": {
+          "type": "string"
+        },
+        "vars": {
+          "items": {
+            "$ref": "#/$defs/Var"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "integration"
+      ]
+    },
+    "Manifest": {
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "project": {
+          "$ref": "#/$defs/Project"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "version"
+      ]
+    },
+    "Project": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "connections": {
+          "items": {
+            "$ref": "#/$defs/Connection"
+          },
+          "type": "array"
+        },
+        "triggers": {
+          "items": {
+            "$ref": "#/$defs/Trigger"
+          },
+          "type": "array"
+        },
+        "vars": {
+          "items": {
+            "$ref": "#/$defs/Var"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Trigger": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "event_type": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "schedule",
+            "webhook",
+            "connection"
+          ]
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "webhook": {
+          "properties": {},
+          "additionalProperties": false,
+          "type": "object"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "call": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "Var": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "secret": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ]
+    }
+  }
+}
+```
+
+### Examples
+
+
+
+```yaml
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Auth0.
+
+version: v1
+
+project:
+  name: auth0_sample
+
+  vars:
+    - name: ROLE_ID
+      value:
+    - name: TIME_INTERVAL
+      value: 7d
+
+  connections:
+    - name: auth_conn
+      integration: auth0
+
+  triggers:
+    - name: weekly
+      schedule: 0 0 * * 1
+      call: program.py:weekly_user_growth
+    - name: assign_role_webhook
+      type: webhook
+      event_type: post
+      call: program.py:assign_role
+```
+
+```yaml
+# This YAML file defines a manifest for an AutoKitteh project that
+# creates a Langgraph bot.
+
+version: v1
+
+project:
+  name: Langgraph_Bot
+
+  connections:
+    - name: slack_conn
+      integration: slack
+    - name: sheets_conn
+      integration: googlesheets
+
+  triggers:
+    - name: on_message
+      event_type: app_mention
+      connection: slack_conn
+      call: program.py:on_app_mention
+
+  vars:
+    - name: GOOGLE_API_KEY
+      value: ""
+    - name: TAVILY_API_KEY
+      value: ""
+```
+
+```yaml
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that monitors comments on GitHub issues.
+
+version: v1
+
+project:
+  name: github_issue_alert
+
+  vars:
+    - name: SLACK_CHANNEL_NAME_OR_ID
+      value: github-issues
+
+  connections:
+    - name: slack_conn
+      integration: slack
+    - name: github_conn
+      integration: github
+
+  triggers:
+    - name: on_issue_comment
+      event_type: issue_comment
+      connection: github_conn
+      call: program.py:on_issue_comment
+    - name: on_issue_event
+      event_type: issues
+      connection: github_conn
+      call: program.py:on_issue_event
+```
+
+```yaml
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that logs messages from Discord to a
+# Google Sheets document.
+
+version: v1
+
+project:
+  name: discord_to_spreadsheet
+
+  vars:
+    - name: RANGE_NAME
+      value: Sheet1!A1
+    - name: SPREADSHEET_ID
+      value:
+
+  connections:
+    - name: discord_conn
+      integration: discord
+    - name: googlesheets_conn
+      integration: googlesheets
+
+  triggers:
+    - name: on_discord_message
+      connection: discord_conn
+      event_type: message_create
+      call: program.py:on_discord_message
+```
+
+
+
+
+================================================
+File: MODEL.md
+================================================
+# Model: Entities & Relationships
+
+- PROJECT has RESOURCEs, CONNECTIONs, TRIGGERs, and VARIABLEs as configuration.
+- AutoKitteh supports a number of native INTEGRATIONs.
+- an INTEGRATION is a native implementation of an interface to an external system, such as Linear, Slack, etc.
+- CONNECTION is a connection to a third-party service using an INTEGRATION, such as Slack, JIRA, Linear, etc.
+  a CONNECTION is always associated with an INTEGRATION.
+  a CONNECTION can have mutliple TRIGGERs defined on it.
+- a DEPLOYMENT is a deployed version of a PROJECT.
+- EVENTs are sent by CONNECTIONs. TRIGGERs define what to do with EVENTs. An EVENT consists on JSON formatted data.
+- a SESSION starts when a DEPLOYMENT is triggered by a TRIGGER. a SESSION a workflow being run.
+- RESOURCE is a source code file, but can be also any file type, like a yaml or json files.
+- TRIGGER is a trigger to start a workflow, such as a CONNECTION event, webhook or a SCHEDULE.
+  - WEBHOOK and SCHEDULE triggers do not require a CONNECTION.
+  - CONNECTION event triggers require a CONNECTION.
+- VARIABLE is a key-value pair that is defined in the project and can be used in the workflow.
+
+## Connections
+
+A CONNECTION is created in order to either receive events from an external application (such as Slack, JIRA, etc) or to perform some operation on an external service.
+
+Certain CONNECTIONs need to be initialized after creation in order for them to function. Often, the initialization means establishing authentication with the external application. For example, if creating either a Slack or GitHub connection, the user is expected to initialize the connection using OAuth, which AutoKitteh supplies a UI for for. Another authentication method, in case of Slack or GitHub, can be using a PAT, which AutoKitteh allows to fill in the connection view.
+
+## Triggers
+
+A TRIGGER can be of one of several types.
+
+- Webhook Trigger: when it is created, AutoKitteh generates a unique URL that when it is hit, the trigger will be invoked.
+- Schedule Trigger: runs on a schedule, defined by a cronspec.
+- Connection Trigger: A third party service sends an event, which when the trigger matches the event - it is invoked.
+
+A TRIGGER can include a FILTER defintion in its `filter` field. The FILTER is specified as a Google CEL expression. The CEL expression takes as input the EVENT payload, under the name `data`. The event type will be under the name `event_type`.
+
+A TRIGGER points to a function execute once is is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT.
+
+### Example: Webhook: Only match with POST JSON requests
+
+```
+name: receive_http_post_json
+type: webhook
+event_type: post
+filter: data.headers["Content-Type"].startsWith("application/json")
+call: webhooks.py:on_http_post_json
+```
+
+### Example: Webhook: Only match with GET or POST requests
+
+```
+name: receive_http_get_or_head
+type: webhook
+filter: data.method in ["GET", "HEAD"]
+call: webhooks.py:on_http_get_or_head
+```
+
+### Example: Slack: Only match `interaction` from a specific user id
+
+```
+name: slack_interaction_from_specific_id
+connection: slack_connection
+filter: event_type == 'interaction' && data.user.id == 'SOME_SLACK_ID'
+```
+
+### Example: Slack: Slack command where its text is "break-glass"
+
+```
+name: break_glass_slack_command
+connection: slack_connection
+event_type: slash_command
+call: program.py:on_slack_slash_command
+filter: data.text == "break-glass"
+```
+
+### Example: GitHub: PR action is either "opened" or "reopened"
+
+```
+name: github_pull_request
+connection: github_conn
+event_type: pull_request
+filter: data.action == "opened" || data.action == "reopened"
+call: program.py:on_github_pull_request
+```
+
+### Example: Schedule Triggers
+
+```
+name: weekly
+schedule: "0 0 * * 1"
+call: program.py:weekly_user_growth
+```
+
+```
+name: weekly
+schedule: @every 1w
+call: program.py:weekly_user_growth
+```
+
+# Sessions
+
+SESSIONs are created as a result of a TRIGGER. A session runs the code in the project, according to the TRIGGER defintion. When a SESSION is being ran, a specific function in its code is being invoked. That function receives the EVENT that triggered it via its argument. If the trigger is a schedule trigger, that event is empty.
+
+IMPORTANT: Session invocation is asynchronic. The CONNECTION or TRIGGER invoking the session do not wait for the result of the session. For example, if a WEBHOOK trigger is invoked, it will ALWAYS return a 202 response, regardless what the session does.
+
+NOTE: A Session is running under the hood as a Temporal Workflow. AutoKitteh knows how to break down the project code running in a session into separate Temporal Activities.
+
+
+
+================================================
+File: OVERVIEW.md
+================================================
+# AutoKitteh Overview
+
+AutoKitteh is a "serverless" platform to build and deploy durable workflows.
+Durable workflows are long-running processes that automatically resume after interruptions.
+
+Important Sites:
+
+- https://autokitteh.com for general information about AutoKitteh.
+- https://autokitteh.cloud, a SaaS deployment of autokitteh that is publicly available.
+
+# Durability
+
+AutoKitteh projects run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
+
+When a project fails due to infrastructure issues—such as instance crashes or network problems—Temporal uses a REPLAY mechanism. It reruns the entire workflow from the beginning, but leverages the cached activity results to skip re-executing those parts, allowing them to return immediately.
+AutoKitteh analyzes the Abstract Syntax Tree (AST) of project code to intelligently determine which function calls should run as ACTIVITIES and which should not.
+
+# Operation
+
+There are three ways to configure a project:
+
+1. Using an autokitteh.yaml, which is also known as "the project manifest".
+2. Using the CLI.
+3. Using the Web UI.
 
 # Documentation Adherence Rules
 

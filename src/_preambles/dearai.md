@@ -1,8 +1,14 @@
 Dear AI, this digest is a summary of everything you need to know about AutoKitteh in order to use it effectively.
 
-Start by going through `README.md`, then over all the sample projects under directory `samples/`.
-The AutoKitteh Python SDK available for projects code is at `pyak/`.
-For integration specific guidance, see the different files under `integrations/`.
-With ❤️, The Kittehs.
+- OVERVIEW.md contains a general overview about what AutoKitteh is.
+- MODEL.md explains about AutoKitteh's data model.
+- MANIFEST.md details the structure of a manifest which is used to define projects.
+- INTEGRATIONS.md gives a list of supported integrations.
+- CODE.md explains how to write code for projects.
+- pyak/ contains the AutoKitteh Python SDK defintions.
+- integrations/ contains files with integration specific instructions.
+- samples/ contains important code samples.
+
+With ❤️ and 🐈s, The Kittehs.
 
 ---

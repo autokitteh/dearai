@@ -15,11 +15,6 @@
   - CONNECTION event triggers require a CONNECTION.
 - VARIABLE is a key-value pair that is defined in the project and can be used in the workflow.
 
-## Integrations
-
-The following integration names are supported:
-{% include "_data/integrations.txt" %}
-
 ## Connections
 
 A CONNECTION is created in order to either receive events from an external application (such as Slack, JIRA, etc) or to perform some operation on an external service.
