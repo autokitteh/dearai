@@ -2,7 +2,7 @@ Dear AI, this digest is a summary of everything you need to know about AutoKitte
 
 Start by going through `README.md`, then over all the sample projects under directory `samples/`.
 The AutoKitteh Python SDK available for projects code is at `pyak/`.
-
+For integration specific guidance, see the different files under `integrations/`.
 With ❤️, The Kittehs.
 
 ---
@@ -1122,6 +1122,12 @@ See https://api.slack.com/events.
 File: pyak/__init__.py
 ================================================
 """AutoKitteh Python SDK."""
+from . import errors
+from .activities import activity, inhibit_activities, register_no_activity
+from .attr_dict import AttrDict
+from .event import Event
+from .events import next_event, start, subscribe, unsubscribe
+from .signals import Signal, next_signal, signal
 __all__ = ['AttrDict', 'Event', 'Signal', 'activity', 'errors',
     'inhibit_activities', 'next_event', 'next_signal',
     'register_no_activity', 'signal', 'start', 'subscribe', 'unsubscribe']
@@ -1132,6 +1138,7 @@ __all__ = ['AttrDict', 'Event', 'Signal', 'activity', 'errors',
 File: pyak/activities.py
 ================================================
 """Decorator to mark a function as a Temporal activity."""
+from typing import Callable
 ACTIVITY_ATTR = '__ak_activity__'
 INHIBIT_ACTIVITIES_ATTR = '__ak_inhibit_activities__'
 
@@ -1184,6 +1191,12 @@ def register_no_activity(items: list[Callable]) ->None:
 ================================================
 File: pyak/asana.py
 ================================================
+import os
+import asana
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 def asana_client(connection: str) ->asana.ApiClient:
     """Initialize an Asana client, based on an AutoKitteh connection.
 
@@ -1208,6 +1221,13 @@ def asana_client(connection: str) ->asana.ApiClient:
 File: pyak/atlassian.py
 ================================================
 """Initialize an Atlassian client, based on an AutoKitteh connection."""
+from datetime import UTC, datetime
+import re
+import os
+from atlassian import Confluence, Jira
+from requests_oauthlib import OAuth2Session
+from .connections import check_connection_name
+from .errors import AtlassianOAuthError, ConnectionInitError, EnvVarError
 __TOKEN_URL = 'https://auth.atlassian.com/oauth/token'
 
 
@@ -1305,6 +1325,12 @@ class AttrDict(dict):
 ================================================
 File: pyak/auth0.py
 ================================================
+import os
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+from auth0.management import Auth0
+
+
 def auth0_client(connection: str, **kwargs) ->Auth0:
     """Initialize an Auth0 client, based on an AutoKitteh connection.
 
@@ -1329,6 +1355,9 @@ def auth0_client(connection: str, **kwargs) ->Auth0:
 File: pyak/aws.py
 ================================================
 """Initialize a Boto3 (AWS SDK) client, based on an AutoKitteh connection."""
+import os
+import boto3
+from .connections import check_connection_name
 
 
 def boto3_client(connection: str, service: str, region: str='', **kwargs):
@@ -1360,6 +1389,8 @@ def boto3_client(connection: str, service: str, region: str='', **kwargs):
 File: pyak/connections.py
 ================================================
 """AutoKitteh connection-related utilities."""
+from datetime import UTC, datetime
+import re
 
 
 def check_connection_name(connection: str) ->None:
@@ -1388,6 +1419,12 @@ def refresh_oauth(integration: str, connection: str) ->tuple[str, datetime]:
 ================================================
 File: pyak/discord.py
 ================================================
+import os
+import discord
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 def discord_client(connection: str, intents=None, **kwargs) ->discord.Client:
     """Initialize a Discord client, based on an AutoKitteh connection.
 
@@ -1418,6 +1455,7 @@ def bot_token(connection: str):
 File: pyak/errors.py
 ================================================
 """AutoKitteh SDK errors."""
+from google.auth.exceptions import RefreshError
 
 
 class AutoKittehError(Exception):
@@ -1445,6 +1483,8 @@ class AtlassianOAuthError(AutoKittehError):
 File: pyak/event.py
 ================================================
 """AutoKitteh Event class"""
+from dataclasses import dataclass
+from .attr_dict import AttrDict
 
 
 @dataclass
@@ -1459,6 +1499,9 @@ class Event:
 File: pyak/events.py
 ================================================
 """Un/subscribe and consume AutoKitteh connection events."""
+from datetime import timedelta
+from uuid import uuid4
+from .attr_dict import AttrDict
 
 
 def subscribe(source: str, filter: str='') ->str:
@@ -1492,6 +1535,12 @@ def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
 File: pyak/github.py
 ================================================
 """Initialize a GitHub client, based on an AutoKitteh connection."""
+import os
+import time
+from urllib.parse import urljoin
+from github import Auth, Consts, Github, GithubIntegration
+from .connections import check_connection_name, encode_jwt
+from .errors import ConnectionInitError
 
 
 def github_client(connection: str, **kwargs) ->Github:
@@ -1527,6 +1576,18 @@ class AppAuth(Auth.AppAuth):
 File: pyak/google.py
 ================================================
 """Initialize Google API clients, based on AutoKitteh connections."""
+from datetime import UTC, datetime
+import json
+import os
+import re
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
+import google.generativeai as genai
+import google.oauth2.credentials as credentials
+import google.oauth2.service_account as service_account
+from googleapiclient.discovery import build
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
 
 
 def gmail_client(connection: str, **kwargs):
@@ -1716,6 +1777,8 @@ def google_id(url: str) ->str:
 File: pyak/height.py
 ================================================
 """Initialize a Height client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
 
 
 def height_client(connection: str) ->Session:
@@ -1742,6 +1805,10 @@ def height_client(connection: str) ->Session:
 File: pyak/hubspot.py
 ================================================
 """Initialize a HubSpot client, based on an AutoKitteh connection."""
+import os
+from hubspot import HubSpot
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
 
 
 def hubspot_client(connection: str, **kwargs) ->HubSpot:
@@ -1765,6 +1832,14 @@ def hubspot_client(connection: str, **kwargs) ->HubSpot:
 ================================================
 File: pyak/kubernetes.py
 ================================================
+import json
+import os
+from types import ModuleType
+from kubernetes import client, config
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 def kubernetes_client(connection: str) ->ModuleType:
     """Initialize a Kubernetes client, based on an AutoKitteh connection.
 
@@ -1788,6 +1863,8 @@ def kubernetes_client(connection: str) ->ModuleType:
 File: pyak/linear.py
 ================================================
 """Initialize a Linear client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
 
 
 def linear_client(connection: str) ->Session:
@@ -1814,6 +1891,13 @@ def linear_client(connection: str) ->Session:
 File: pyak/microsoft.py
 ================================================
 """Initialize Microsoft Graph SDK clients, based on AutoKitteh connections."""
+from datetime import datetime, timedelta, UTC
+import os
+from azure.core import credentials
+from azure import identity
+from msgraph import GraphServiceClient
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError
 DEFAULT_REFRESH_BUFFER_TIME = timedelta(minutes=5)
 
 
@@ -1848,6 +1932,13 @@ class OAuthTokenProvider(credentials.TokenCredential):
 ================================================
 File: pyak/oauth2_session.py
 ================================================
+import requests
+from os import getenv
+from .connections import refresh_oauth
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 class OAuth2Session(requests.Session):
     """Encapsulates arequests session, based on an AutoKitteh connection.
 
@@ -1862,6 +1953,10 @@ class OAuth2Session(requests.Session):
 File: pyak/openai.py
 ================================================
 """Initialize an OpenAI client, based on an AutoKitteh connection."""
+import os
+from openai import OpenAI
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def openai_client(connection: str) ->OpenAI:
@@ -1889,6 +1984,11 @@ def openai_client(connection: str) ->OpenAI:
 ================================================
 File: pyak/packages.py
 ================================================
+import re
+import sys
+from subprocess import run
+
+
 def install(*packages):
     """Install Python packages using pip.
 
@@ -1910,6 +2010,10 @@ def install(*packages):
 File: pyak/salesforce.py
 ================================================
 """Initialize a Salesforce client, based on an AutoKitteh connection."""
+import os
+from simple_salesforce import Salesforce
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def salesforce_client(connection: str, **kwargs) ->Salesforce:
@@ -1934,6 +2038,8 @@ def salesforce_client(connection: str, **kwargs) ->Salesforce:
 File: pyak/signals.py
 ================================================
 """Send and receive signals."""
+from datetime import timedelta
+from dataclasses import dataclass
 
 
 @dataclass
@@ -1958,6 +2064,11 @@ def next_signal(name: (str | list[str]), *, timeout: (timedelta | int |
 File: pyak/slack.py
 ================================================
 """Slack client initialization, and other helper functions."""
+import os
+import re
+from slack_sdk.web.client import WebClient
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def slack_client(connection: str, **kwargs) ->WebClient:
@@ -2002,6 +2113,10 @@ def normalize_channel_name(name: str) ->str:
 File: pyak/twilio.py
 ================================================
 """Initialize a Twilio client, based on an AutoKitteh connection."""
+import os
+from twilio.rest import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def twilio_client(connection: str) ->Client:
@@ -2028,6 +2143,8 @@ def twilio_client(connection: str) ->Client:
 File: pyak/zoom.py
 ================================================
 """Initialize a Zoom client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
 
 
 def zoom_client(connection: str) ->Session:

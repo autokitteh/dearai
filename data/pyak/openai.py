@@ -1,4 +1,8 @@
 """Initialize an OpenAI client, based on an AutoKitteh connection."""
+import os
+from openai import OpenAI
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def openai_client(connection: str) ->OpenAI:

@@ -1,4 +1,6 @@
 """Send and receive signals."""
+from datetime import timedelta
+from dataclasses import dataclass
 
 
 @dataclass

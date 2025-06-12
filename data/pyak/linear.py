@@ -1,4 +1,6 @@
 """Initialize a Linear client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
 
 
 def linear_client(connection: str) ->Session:

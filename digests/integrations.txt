@@ -1,0 +1,39 @@
+Directory structure:
+└── integrations/
+    ├── GITHUB.md
+    ├── GMAIL.md
+    └── SLACK.md
+
+================================================
+File: GITHUB.md
+================================================
+# GitHub Integration
+
+## Event Payload
+
+See https://docs.github.com/en/rest/using-the-rest-api/github-event-types?apiVersion=2022-11-28.
+
+
+
+================================================
+File: GMAIL.md
+================================================
+# gmail Integration
+
+Reacting on gmail state change can be done in either of two ways:
+
+- Polling using a schedule trigger and checking the state, or -
+- Triggering on gmail events.
+
+
+
+================================================
+File: SLACK.md
+================================================
+# Slack Integration
+
+## Event Payload
+
+See https://api.slack.com/events.
+
+

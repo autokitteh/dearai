@@ -1,3 +1,10 @@
+import requests
+from os import getenv
+from .connections import refresh_oauth
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 class OAuth2Session(requests.Session):
     """Encapsulates arequests session, based on an AutoKitteh connection.
 

@@ -1,4 +1,11 @@
 """Initialize an Atlassian client, based on an AutoKitteh connection."""
+from datetime import UTC, datetime
+import re
+import os
+from atlassian import Confluence, Jira
+from requests_oauthlib import OAuth2Session
+from .connections import check_connection_name
+from .errors import AtlassianOAuthError, ConnectionInitError, EnvVarError
 __TOKEN_URL = 'https://auth.atlassian.com/oauth/token'
 
 

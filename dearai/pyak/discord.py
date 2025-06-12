@@ -1,3 +1,9 @@
+import os
+import discord
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
 def discord_client(connection: str, intents=None, **kwargs) ->discord.Client:
     """Initialize a Discord client, based on an AutoKitteh connection.
 

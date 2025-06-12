@@ -1,4 +1,8 @@
 """Initialize a Twilio client, based on an AutoKitteh connection."""
+import os
+from twilio.rest import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def twilio_client(connection: str) ->Client:

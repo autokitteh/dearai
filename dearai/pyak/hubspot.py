@@ -1,4 +1,8 @@
 """Initialize a HubSpot client, based on an AutoKitteh connection."""
+import os
+from hubspot import HubSpot
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
 
 
 def hubspot_client(connection: str, **kwargs) ->HubSpot:

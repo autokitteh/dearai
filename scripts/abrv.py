@@ -4,12 +4,6 @@ import sys
 
 
 class OmitBodies(ast.NodeTransformer):
-    def visit_Import(self, node):
-        return None
-
-    def visit_ImportFrom(self, node):
-        return None
-
     def visit_FunctionDef(self, node):
         if node.name.startswith("_"):
             return None  # Remove functions starting with _

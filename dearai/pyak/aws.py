@@ -1,4 +1,7 @@
 """Initialize a Boto3 (AWS SDK) client, based on an AutoKitteh connection."""
+import os
+import boto3
+from .connections import check_connection_name
 
 
 def boto3_client(connection: str, service: str, region: str='', **kwargs):

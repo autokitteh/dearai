@@ -1,12 +1,10 @@
 .PHONY: count-tokens
 count-tokens: digest
-	cd scripts && uv run --with tiktoken count_tokens.py < ../dearai.txt
+	./scripts/count-tokens.sh
 
 .PHONY: digest
 digest: dearai
-	uvx gitingest dearai --output dearai_.txt
-	cat src/_DIGEST_PREMABLE.md dearai_.txt > dearai.txt
-	rm -f dearai_.txt
+	./scripts/gen-digests.sh
 
 .PHONY: dearai
 dearai: data
@@ -18,4 +16,4 @@ data:
 
 .PHONY: clean
 clean:
-	rm -fR data dearai
+	rm -fR data dearai digests

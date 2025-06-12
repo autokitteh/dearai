@@ -14,4 +14,4 @@ try:
 except KeyError:
     encoding = tiktoken.get_encoding(default)
 
-print(f"Total of {len(encoding.encode(content))} tokens")
+print(f"{len(encoding.encode(content))} tokens")

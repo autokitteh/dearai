@@ -1,4 +1,16 @@
 """Initialize Google API clients, based on AutoKitteh connections."""
+from datetime import UTC, datetime
+import json
+import os
+import re
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
+import google.generativeai as genai
+import google.oauth2.credentials as credentials
+import google.oauth2.service_account as service_account
+from googleapiclient.discovery import build
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
 
 
 def gmail_client(connection: str, **kwargs):

@@ -1,4 +1,8 @@
 """Initialize a Salesforce client, based on an AutoKitteh connection."""
+import os
+from simple_salesforce import Salesforce
+from .connections import check_connection_name
+from .errors import ConnectionInitError
 
 
 def salesforce_client(connection: str, **kwargs) ->Salesforce:

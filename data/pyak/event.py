@@ -1,4 +1,6 @@
 """AutoKitteh Event class"""
+from dataclasses import dataclass
+from .attr_dict import AttrDict
 
 
 @dataclass

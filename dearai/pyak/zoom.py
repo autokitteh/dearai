@@ -1,4 +1,6 @@
 """Initialize a Zoom client, based on an AutoKitteh connection."""
+from requests import Session
+from .oauth2_session import OAuth2Session
 
 
 def zoom_client(connection: str) ->Session:

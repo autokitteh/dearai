@@ -1,4 +1,5 @@
 """Decorator to mark a function as a Temporal activity."""
+from typing import Callable
 ACTIVITY_ATTR = '__ak_activity__'
 INHIBIT_ACTIVITIES_ATTR = '__ak_inhibit_activities__'
 

@@ -1,4 +1,11 @@
 """Initialize Microsoft Graph SDK clients, based on AutoKitteh connections."""
+from datetime import datetime, timedelta, UTC
+import os
+from azure.core import credentials
+from azure import identity
+from msgraph import GraphServiceClient
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError
 DEFAULT_REFRESH_BUFFER_TIME = timedelta(minutes=5)
 
 

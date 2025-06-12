@@ -1,4 +1,7 @@
 """Un/subscribe and consume AutoKitteh connection events."""
+from datetime import timedelta
+from uuid import uuid4
+from .attr_dict import AttrDict
 
 
 def subscribe(source: str, filter: str='') ->str:

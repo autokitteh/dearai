@@ -1,3 +1,9 @@
+import os
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+from auth0.management import Auth0
+
+
 def auth0_client(connection: str, **kwargs) ->Auth0:
     """Initialize an Auth0 client, based on an AutoKitteh connection.
 
