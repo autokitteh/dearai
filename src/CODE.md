@@ -10,6 +10,7 @@ By default, AutoKitteh makes available the following packages for the program:
 
 If the additional packages are required, they can be specified in a `requirements.txt` file.
 
+{% include "INTEGRATIONS.md" %}
 {% include "_PITFALLS.md" %}
 {% include "_SDK.md" %}
 {% include "_TOUR.md" %}
