@@ -7,6 +7,7 @@ import sys
 from base64 import b64decode
 from collections import namedtuple
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import update_wrapper
 from io import StringIO
 from multiprocessing import cpu_count
 from pathlib import Path
@@ -233,7 +234,7 @@ class Runner(pb.runner_rpc.RunnerService):
         self.executor = ThreadPoolExecutor()
 
         self.lock = Lock()
-        self.activity_call = None
+        self.activity_call: Call = None
         self._orig_print = print
         self._start_called = False
         self._inactivity_timer = Timer(
@@ -304,8 +305,13 @@ class Runner(pb.runner_rpc.RunnerService):
         connections.encode_jwt = self.syscalls.ak_encode_jwt
         connections.refresh_oauth = self.syscalls.ak_refresh_oauth
 
+        autokitteh.del_value = self.syscalls.ak_del_value
+        autokitteh.get_value = self.syscalls.ak_get_value
+        autokitteh.list_values_keys = self.syscalls.ak_list_values_keys
+        autokitteh.mutate_value = self.syscalls.ak_mutate_value
         autokitteh.next_event = self.syscalls.ak_next_event
         autokitteh.next_signal = self.syscalls.ak_next_signal
+        autokitteh.set_value = self.syscalls.ak_set_value
         autokitteh.signal = self.syscalls.ak_signal
         autokitteh.start = self.syscalls.ak_start
         autokitteh.subscribe = self.syscalls.ak_subscribe
@@ -366,12 +372,14 @@ class Runner(pb.runner_rpc.RunnerService):
         # hook = make_audit_hook(ak_call, self.code_dir)
         # sys.addaudithook(hook)
 
+        # Top-level handler marked as activity.
         if activity_marker(fn):
             orig_fn = fn
 
             def handler(event):
                 return ak_call(orig_fn, event)
 
+            update_wrapper(handler, orig_fn)
             fn = handler
 
         self.executor.submit(self.on_event, fn, event)
@@ -458,7 +466,16 @@ class Runner(pb.runner_rpc.RunnerService):
                 error = AutoKittehError(repr(result.error))
             call.fut.set_exception(error)
         else:
-            call.fut.set_result(result.value)
+            if inspect.iscoroutinefunction(call.fn):
+                # Wrap async result from activity so it can be awaited
+                async def future():
+                    return result.value
+
+                value = future()
+            else:
+                value = result.value
+
+            call.fut.set_result(value)
 
         return pb.runner.ActivityReplyResponse()
 

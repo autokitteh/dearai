@@ -26,6 +26,7 @@ Directory structure:
     ├── pyak/
     │   ├── __init__.py
     │   ├── activities.py
+    │   ├── anthropic.py
     │   ├── asana.py
     │   ├── atlassian.py
     │   ├── attr_dict.py
@@ -49,6 +50,7 @@ Directory structure:
     │   ├── salesforce.py
     │   ├── signals.py
     │   ├── slack.py
+    │   ├── store.py
     │   ├── twilio.py
     │   └── zoom.py
     └── samples/
@@ -73,6 +75,7 @@ The code is Python 3 code.
 
 By default, AutoKitteh makes available the following packages for the program:
 """
+anthropic ~= 0.54.0
 asana ~= 5.0
 atlassian-python-api ~= 3.41
 auth0-python ~= 4.7
@@ -126,7 +129,7 @@ The following integration names are supported:
 
 ## Pitfalls
 
-### Function Return Value Must Be Pickleable
+## Function Return Value Must Be Pickleable
 
 We use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
 
@@ -154,7 +157,7 @@ def handler(event):
 
 NOTE: You can use copyreg.pickle in order to support more types.
 
-### Function Timeout
+## Function Timeout
 
 If a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
 
@@ -1174,9 +1177,11 @@ from .attr_dict import AttrDict
 from .event import Event
 from .events import next_event, start, subscribe, unsubscribe
 from .signals import Signal, next_signal, signal
-__all__ = ['AttrDict', 'Event', 'Signal', 'activity', 'errors',
-    'inhibit_activities', 'next_event', 'next_signal',
-    'register_no_activity', 'signal', 'start', 'subscribe', 'unsubscribe']
+from .store import get_value, mutate_value, set_value, del_value, list_values_keys
+__all__ = ['AttrDict', 'errors', 'start', 'activity', 'inhibit_activities',
+    'register_no_activity', 'Event', 'next_event', 'subscribe',
+    'unsubscribe', 'next_signal', 'signal', 'Signal', 'del_value',
+    'get_value', 'list_values_keys', 'mutate_value', 'set_value']
 
 
 
@@ -1229,6 +1234,38 @@ def register_no_activity(items: list[Callable]) ->None:
     class are marked as non-activities.
 
     This helps speeding up your code, but you might risk non-deterministic behavior.
+    """
+    ...
+
+
+
+================================================
+File: pyak/anthropic.py
+================================================
+"""Initialize an Anthropic client, based on an AutoKitteh connection."""
+import os
+from anthropic import Anthropic
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def anthropic_client(connection: str) ->Anthropic:
+    """Initialize an Anthropic client, based on an AutoKitteh connection.
+
+    API reference:
+    https://docs.anthropic.com/claude/reference
+    https://github.com/anthropics/anthropic-sdk-python
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Anthropic API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        anthropic.APIError: Anthropic SDK initialization errors.
     """
     ...
 
@@ -1889,6 +1926,10 @@ from .errors import ConnectionInitError
 def kubernetes_client(connection: str) ->ModuleType:
     """Initialize a Kubernetes client, based on an AutoKitteh connection.
 
+    API reference:
+    https://github.com/kubernetes-client/python
+    https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/
+
     Args:
         connection: AutoKitteh connection name.
 
@@ -2150,6 +2191,88 @@ def normalize_channel_name(name: str) ->str:
 
     Returns:
         Valid Slack channel name.
+    """
+    ...
+
+
+
+================================================
+File: pyak/store.py
+================================================
+from typing import Any
+from enum import StrEnum
+_local_dev_store = {}
+
+
+class Op(StrEnum):
+    """Enum for operation types."""
+    SET = 'set'
+    GET = 'get'
+    DEL = 'del'
+
+
+def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
+    """Mutate a stored value.
+
+    Args:
+        key: Key of the value to mutate.
+        op: Operation to perform on the value.
+        args: Additional arguments for the operation.
+
+    Returns:
+        Any: Result of the operation, if applicable.
+
+    Raises:
+        AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def get_value(key: str) ->Any:
+    """Get a stored value.
+
+    Args:
+        key: Key of the value to retrieve.
+
+    Returns:
+        Any: The stored value, or None if not found.
+    """
+    ...
+
+
+def set_value(key: str, value: Any) ->None:
+    """Set a stored value.
+
+    Args:
+        key: Key of the value to set.
+        value: Value to store. If Value is None, it will be deleted. Value must be serializable.
+
+    Returns:
+        None.
+
+    Raises:
+        AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def del_value(key: str) ->None:
+    """Delete a stored value.
+
+    Args:
+        key: Key of the value to set.
+
+    Returns:
+        None.
+    """
+    ...
+
+
+def list_values_keys() ->list[str]:
+    """List all stored keys.
+
+    Returns:
+        list[str]: Sorted list of all keys in the store.
     """
     ...
 

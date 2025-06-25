@@ -7,6 +7,7 @@ The code is Python 3 code.
 
 By default, AutoKitteh makes available the following packages for the program:
 """
+anthropic ~= 0.54.0
 asana ~= 5.0
 atlassian-python-api ~= 3.41
 auth0-python ~= 4.7
@@ -60,7 +61,7 @@ The following integration names are supported:
 
 ## Pitfalls
 
-### Function Return Value Must Be Pickleable
+## Function Return Value Must Be Pickleable
 
 We use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
 
@@ -88,7 +89,7 @@ def handler(event):
 
 NOTE: You can use copyreg.pickle in order to support more types.
 
-### Function Timeout
+## Function Timeout
 
 If a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
 

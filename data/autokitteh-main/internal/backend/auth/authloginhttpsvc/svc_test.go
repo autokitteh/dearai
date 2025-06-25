@@ -65,7 +65,7 @@ func TestNewSuccessLoginHandlerImmediate(t *testing.T) {
 
 	// new user.
 	users.Reset()
-	s.Deps.Cfg.RejectNewUsers = false
+	s.Cfg.RejectNewUsers = false
 
 	h = s.newSuccessLoginHandler(ctx, ld)
 	if assert.False(t, isErrHandler(h), h) {
@@ -75,7 +75,7 @@ func TestNewSuccessLoginHandlerImmediate(t *testing.T) {
 			users.Users[testUser.ID()],
 		)
 	}
-	assertCounts(1, 0, 1)
+	assertCounts(1, 0, 2)
 
 	// user already exists and is active.
 	users.Reset(testUser)
@@ -106,7 +106,7 @@ func TestNewSuccessLoginHandlerImmediate(t *testing.T) {
 	// invited user should work even if rejecting new users.
 	users.Reset(testUser.WithStatus(sdktypes.UserStatusInvited).WithDisplayName(""))
 
-	s.Deps.Cfg.RejectNewUsers = true
+	s.Cfg.RejectNewUsers = true
 
 	h = s.newSuccessLoginHandler(ctx, ld)
 	if assert.False(t, isErrHandler(h), h) {
