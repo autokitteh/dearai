@@ -1480,16 +1480,10 @@ See https://api.slack.com/events.
 ================================================
 FILE: kittehub/ai_agents/langgraph_bot/README.md
 ================================================
----
 title: LangGraph Bot with Tavily, and Google Sheets
 description: Slack bot built with LangGraph and powered by Gemini LLM that can search information and update Google Sheets
 integrations: ["slack", "sheets"]
 categories: ["AI", "Productivity"]
----
-
-# LangGraph Bot with Tavily, and Google Sheets
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=ai_agents/langgraph_bot)
 
 
 
@@ -1632,16 +1626,10 @@ langchain-tavily
 ================================================
 FILE: kittehub/ai_agents/openai_agent_researcher/README.md
 ================================================
----
 title: OpenAI Agent Researcher
 description: A Slack-based research agent workflow.
 integrations: ["chatgpt", "slack"]
 categories: ["AI"]
----
-
-[Blog Post](https://autokitteh.com/technical-blog/building-stateful-ai-research-agent-with-openai-agents/)
-
-# OpenAI Agent Researcher
 
 
 
@@ -2155,16 +2143,10 @@ def on_slack_message(event):
 ================================================
 FILE: kittehub/ai_chat_assistant/README.md
 ================================================
----
 title: AI chat assistant
 description: A Slack-based automation assistant that leverages ChatGPT to manage and respond to messages by integrating with GitHub and Google Sheets.
 integrations: ["chatgpt", "github", "sheets", "slack"]
 categories: ["AI"]
----
-
-# AI Chat Assistant
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=ai-chat-assistant)
 
 
 
@@ -2556,16 +2538,10 @@ def get_github_user_id_by_email(email: str):
 ================================================
 FILE: kittehub/anthropic_slack_thread_tldr/README.md
 ================================================
----
 title: Anthropic Slack Thread TLDR
 description: Summarizes a Slack thread using Claude
 integrations: ["slack"]
 categories: ["AI"]
----
-
-# Anthropic Slack Thread TLDR
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=anthropic_slack_thread_tldr)
 
 
 
@@ -2693,16 +2669,10 @@ def on_slack_thread_message(event):
 ================================================
 FILE: kittehub/auth0_to_hubspot/README.md
 ================================================
----
 title: Copy Auth0 Users to HubSpot
 description: Periodically add new Auth0 users to HubSpot as contacts
 integrations: ["auth0", "hubspot"]
 categories: ["CRM"]
----
-
-# Auth0 to HubSpot
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=auth0_to_hubspot)
 
 
 
@@ -2818,16 +2788,10 @@ def _extract_name(user):
 ================================================
 FILE: kittehub/break_glass/README.md
 ================================================
----
 title: Manage emergency AWS access requests via Slack
 description: Submit emergency AWS access requests via Slack, which are then approved or denied based on a set of predefined conditions
 integrations: ["aws", "slack"]
 categories: ["DevOps"]
----
-
-# Break-Glass Request Workflow
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=break_glass)
 
 
 
@@ -3127,16 +3091,10 @@ FILE: kittehub/break_glass/request_modal.json.txt
 ================================================
 FILE: kittehub/categorize_emails/README.md
 ================================================
----
 title: Email categorization and notification
 description: Categorize incoming emails and notify relevant Slack channels
 integrations: ["gmail", "chatgpt", "slack"]
 categories: ["AI", "Productivity"]
----
-
-# Email Categorization and Notification
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=categorize_emails)
 
 
 
@@ -3322,16 +3280,10 @@ def _categorize_email(email_content: str) -> str:
 ================================================
 FILE: kittehub/confluence_to_slack/README.md
 ================================================
----
 title: Slack notify on Confluence page created
 description: When Confluence page is created the user will be notified on Slack
 integrations: ["confluence", "slack"]
 categories: ["DevOps"]
----
-
-
-# Confluence To Slack Workflow 
-
 
 
 
@@ -3425,16 +3377,10 @@ def _send_slack_message(page, html_body):
 ================================================
 FILE: kittehub/data_pipeline/README.md
 ================================================
----
 title: ETL Pipeline From S3 to SQLite
 description: Processes GPX files from S3 and inserts them into a SQLite database, creating a data pipeline from cloud to structured data
 integrations: ["aws", "http", "sqlite3"]
 categories: ["DevOps"]
----
-
-# ETL Pipeline From S3 to SQLite
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=data_pipeline)
 
 
 
@@ -4835,16 +4781,10 @@ FILE: kittehub/data_pipeline/subscription-event.json
 ================================================
 FILE: kittehub/devops/github_issue_alert/README.md
 ================================================
----
 title: GitHub issue alert
 description: Send GitHub issue comments to Slack
 integrations: ["github", "slack"]
 categories: ["DevOps"]
----
-
-# GitHub Issue Alert
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=devops/github_issue_alert)
 
 
 
@@ -4942,16 +4882,10 @@ def on_issue_event(event):
 ================================================
 FILE: kittehub/devops/github_workflows/README.md
 ================================================
----
 title: GitHub workflow orchestration
 description: Orchestrate GitHub workflows using advanced scenarios across multiple repositories
 integrations: ["github"]
 categories: ["DevOps"]
----
-
-# GitHub Workflow Orchestration
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=devops/github_workflows)
 
 
 
@@ -5190,16 +5124,10 @@ def _index2char(index: int) -> str:
 ================================================
 FILE: kittehub/devops/purrr/README.md
 ================================================
----
 title: Pull Request Review Reminder (Purrr)
 description: Streamline code reviews and cut down turnaround time to merge pull requests
 integrations: ["github", "sheets", "slack"]
 categories: ["DevOps"]
----
-
-# Pull Request Review Reminder (Purrr)
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=devops/purrr)
 
 
 
@@ -7519,16 +7447,10 @@ def _slack_users() -> list[dict]:
 ================================================
 FILE: kittehub/devops/reviewkitteh/README.md
 ================================================
----
 title: ReviewKitteh
 description: Monitor a GitHub PR in Slack until it's closed
 integrations: ["github", "sheets", "slack"]
 categories: ["DevOps"]
----
-
-# ReviewKitteh
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=devops/reviewkitteh)
 
 
 
@@ -7639,16 +7561,10 @@ def _log(msg):
 ================================================
 FILE: kittehub/devops/sftp/README.md
 ================================================
----
 title: SFTP demo
 description: Trigger a file transfer from SFTP to HTTP on webhook call
 integrations: ["http"]
 categories: ["DevOps"]
----
-
-# SFTP demo
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=devops/sftp)
 
 
 
@@ -7751,16 +7667,6 @@ paramiko
 ================================================
 FILE: kittehub/discord_to_spreadsheet/README.md
 ================================================
-# Discord to Spreadsheet Workflow
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=discord_to_spreadsheet)
-
-This project automates the process of logging Discord messages to a Google Sheets document. It captures message events from a Discord server and appends the author's username and message content into the specified spreadsheet. This is intended as a starting point rather than a complete solution.
-
-## Benefits
-
-- **Ease of Use:** Demonstrates how simple it is to connect Discord and Google Sheets into an automated workflow.
-- **Low Complexity:** The workflow is implemented with minimal code and setup.
 
 
 
@@ -7826,16 +7732,10 @@ def on_discord_message(event):
 ================================================
 FILE: kittehub/github_copilot_seats/README.md
 ================================================
----
 title: Cancel GitHub Copilot access for inactive users
 description: If Copilot was not used in a preceding period by users, unsubscribe and notify them in Slack. Users can ask for their subscription to be reinstated.
 integrations: ["githubcopilot", "slack"]
 categories: ["DevOps"]
----
-
-# GitHub Copilot Seat Pruning
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=github_copilot_seats)
 
 
 
@@ -8178,16 +8078,10 @@ def _slack_users() -> list[dict]:
 ================================================
 FILE: kittehub/github_marketplace_to_slack/README.md
 ================================================
----
 title: GitHub Marketplace to Slack
 description: Forward GitHub Marketplace notifications to Slack
 integrations: ["github", "http", "slack"]
 categories: ["CRM"]
----
-
-# GitHub Marketplace to Slack
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=github_marketplace_to_slack)
 
 
 
@@ -8296,16 +8190,10 @@ def _verify_signature(payload: bytes, secret: str, signature: str):
 ================================================
 FILE: kittehub/google_cal_to_asana/README.md
 ================================================
----
 title: Google Calendar To Asana
 description: Creates Asana tasks based on Google Calendar events
 integrations: ["calendar", "asana"]
 categories: ["Productivity"]
----
-
-# Google Calendar To Asana
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=google_cal_to_asana)
 
 
 
@@ -8394,16 +8282,10 @@ def create_asana_task(task_name, due_date, description):
 ================================================
 FILE: kittehub/google_forms_to_jira/README.md
 ================================================
----
 title: Create Jira ticket from Google form
 description: Create and update Jira tickets automatically from Google Forms responses
 integrations: ["forms", "jira"]
 categories: ["DevOps"]
----
-
-# Create Jira ticket from Google form
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=google_forms_to_jira)
 
 
 
@@ -8513,16 +8395,10 @@ def _update_jira_issue(issue, answers, response_id):
 ================================================
 FILE: kittehub/hackernews/README.md
 ================================================
----
 title: Hacker News alerts in Slack
 description: Track Hacker News articles by topic and send updates to Slack
 integrations: ["slack"]
 categories: ["Productivity"]
----
-
-# Hacker News Alerts in Slack
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=hackernews)
 
 
 
@@ -8619,16 +8495,10 @@ def fetch_articles(topic, all_articles):
 ================================================
 FILE: kittehub/invoice_processing/README.md
 ================================================
----
 title: Invoice processing system
 description: Process emails for invoices, extract data, and generate reports
 integrations: ["gmail", "chatgpt"]
 categories: ["AI", "Productivity"]
----
-
-# Invoice Processing System
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=invoice_processing)
 
 
 
@@ -9288,16 +9158,10 @@ AI_BOOLEAN_SCHEMA = {"type": "text"}
 ================================================
 FILE: kittehub/jenkins_release/README.md
 ================================================
----
 title: GitHub and Jenkins workflow
 description: This ensures that when a commit is pushed to main, a specific Jenkins build is completed.
 integrations: ["github"]
 categories: ["DevOps"]
----
-
-# GitHub and Jenkins Workflow
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=jenkins_release)
 
 
 
@@ -9405,16 +9269,10 @@ def _track(job_name, build_number):
 ================================================
 FILE: kittehub/jira_google_calendar/assignee_from_schedule/README.md
 ================================================
----
 title: Jira assignee from Google Calendar
 description: Set assignee in Jira ticket to the person currently on-call
 integrations: ["jira", "calendar"]
 categories: ["DevOps"]
----
-
-# Jira Assignee From Google Calendar
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=jira_google_calendar/assignee_from_schedule)
 
 
 
@@ -9503,16 +9361,10 @@ def _get_current_oncall():
 ================================================
 FILE: kittehub/jira_google_calendar/deadline_to_event/README.md
 ================================================
----
 title: Create calendar due date event for Jira ticket
 description: When a new Jira issue is created, the workflow automatically generates a Google Calendar event with a deadline
 integrations: ["calendar", "jira"]
 categories: ["DevOps"]
----
-
-# Jira to Google Calendar Workflow
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=jira_google_calendar/deadline_to_event)
 
 
 
@@ -9595,16 +9447,10 @@ def _create_calendar_event(issue, key):
 ================================================
 FILE: kittehub/quickstart/README.md
 ================================================
----
 title: Quickstart
 description: Sample for quickstart
 integrations: ["http"]
 categories: ["Samples"]
----
-
-# Quickstart
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=quickstart)
 
 
 
@@ -9649,16 +9495,10 @@ def quickstart(_):
 ================================================
 FILE: kittehub/reliability/aws_health_monitor/README.md
 ================================================
----
 title: AWS Health monitor
 description: Announce AWS Health events in Slack channels, based on resource ownership data in a Google Sheet
 integrations: ["aws", "slack", "sheets"]
 categories: ["Reliability"]
----
-
-# AWS Health Monitor
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=reliability/aws_health_monitor)
 
 
 
@@ -9833,16 +9673,10 @@ def _post_slack_message(
 ================================================
 FILE: kittehub/reliability/incidenter/README.md
 ================================================
----
 title: Incident management automation
 description: Connect separate systems to have seamless incident management
 integrations: ["slack", "zoom", "height"]
 categories: ["Reliability"]
----
-
-# Incident Management Automation
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=reliability/incidenter)
 
 
 
@@ -10114,16 +9948,10 @@ def create_meeting(topic):
 ================================================
 FILE: kittehub/reliability/missing_jira_events_monitor/README.md
 ================================================
----
 title: Missing Jira events monitor
 description: Send Slack alerts when AutoKitteh doesn't receive certain Jira events in time
 integrations: ["jira", "slack"]
 categories: ["Reliability"]
----
-
-# Missing Jira Events Monitor
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=reliability/missing_jira_events_monitor)
 
 
 
@@ -10230,16 +10058,10 @@ def on_monitor_trigger(_):
 ================================================
 FILE: kittehub/reliability/session_errors_monitor/README.md
 ================================================
----
 title: AutoKitteh session errors monitor
 description: Send Slack alerts when AutoKitteh sessions end due to errors
 integrations: ["autokitteh", "slack"]
 categories: ["Reliability"]
----
-
-# AutoKitteh Session Errors Monitor
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=reliability/session_errors_monitor)
 
 
 
@@ -10353,16 +10175,10 @@ def _log_error(session):
 ================================================
 FILE: kittehub/room_reservation/README.md
 ================================================
----
 title: Ad-hoc room reservation via Slack
 description: Ad-hoc room reservation via Slack slash commands
 integrations: ["slack", "calendar"]
 categories: ["Productivity"]
----
-
-# Room Reservarion
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=room_reservation)
 
 
 
@@ -10627,16 +10443,10 @@ def get_email_from_slack_command(text):
 ================================================
 FILE: kittehub/samples/asana/README.md
 ================================================
----
 title: Asana sample
 description: Simple usage of the Asana API
 integrations: ["asana"]
 categories: ["Samples"]
----
-
-# Asana Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/asana)
 
 
 
@@ -10728,31 +10538,16 @@ def update_task(event):
 ================================================
 FILE: kittehub/samples/atlassian/README.md
 ================================================
-# Atlassian Samples
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/atlassian)
-
-These [AutoKitteh](https://github.com/autokitteh/autokitteh) projects
-demonstrate 2-way integration with Atlassian services and APIs.
-
-- Confluence
-- [Jira](./jira/)
 
 
 
 ================================================
 FILE: kittehub/samples/atlassian/jira/README.md
 ================================================
----
 title: Jira sample
 description: Samples using Jira APIs
 integrations: ["jira"]
 categories: ["Samples"]
----
-
-# Atlassian Jira Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/atlassian/jira)
 
 
 
@@ -10818,16 +10613,10 @@ def on_jira_comment_created(event):
 ================================================
 FILE: kittehub/samples/auth0/README.md
 ================================================
----
 title: Auth0 sample
 description: Simple usage of the Auth0 API
 integrations: ["auth0"]
 categories: ["Samples"]
----
-
-# Auth0 Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/auth0)
 
 
 
@@ -10910,26 +10699,12 @@ def weekly_user_growth(_):
 ================================================
 FILE: kittehub/samples/discord/README.md
 ================================================
-# Discord Samples
-
-These [AutoKitteh](https://github.com/autokitteh/autokitteh) projects
-demonstrate 2-way integration with [Discord](https://discord.com/).
 
 
 
 ================================================
 FILE: kittehub/samples/discord/discord_client/README.md
 ================================================
-# Basic Discord Bot with AutoKitteh
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/discord/discord_client)
-
-This project demonstrates how to use AutoKitteh's Discord integration to create a basic Discord bot that performs simple operations. The bot connects to Discord, waits until it is ready, and then sends a "Meow!" message to a specified channel. This example serves as a foundational guide for integrating AutoKitteh's Discord capabilities into your own projects.
-
-## Benefits
-
-- **Simple Integration:** Quickly set up a Discord bot using AutoKitteh's Discord integration.
-- **Event Handling:** Listens for the `on_ready` event and can be extended to handle more events.
 
 
 
@@ -11015,16 +10790,6 @@ async def on_ready():
 ================================================
 FILE: kittehub/samples/discord/events/README.md
 ================================================
-# Discord Events
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/discord/events)
-
-This project demonstrates how to utilize AutoKitteh's event system for Discord, offering a simpler alternative to the [discord.py library](../discord_client/) when working with supported [events](https://docs.autokitteh.com/integrations/discord/events). The program listens for message-related events (message creation, update, and deletion) in Discord and logs the corresponding information. This example serves as a foundational guide for integrating AutoKitteh's Discord event handling with other services.
-
-## Benefits
-
-- **Simple Integration:** This workflow is designed to easily connect Discord to custom logging or processing systems.
-- **Modular Design:** You can extend or modify this program to suit your specific needs, such as adding more event types or integrating with external APIs.
 
 
 
@@ -11085,48 +10850,22 @@ def on_discord_message_delete(event):
 ================================================
 FILE: kittehub/samples/github/README.md
 ================================================
-# GitHub
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/github)
-
-There are various AutoKitteh projects in the Kittehub repository that demonstrate different aspects of integration with [GitHub](https://github.com).
-
-## General Documentation
-
-- [AutoKitteh](https://docs.autokitteh.com/integrations/github)
-- [GitHub webhook events and payloads](https://docs.github.com/en/webhooks/webhook-events-and-payloads)
 
 
 
 ================================================
 FILE: kittehub/samples/google/README.md
 ================================================
-# Google Samples
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google)
-
-These [AutoKitteh](https://github.com/autokitteh/autokitteh) projects
-demonstrate 2-way integration with Google services and APIs.
-
-## Google Workspace
-
-- [Calendar](./calendar/)
 
 
 
 ================================================
 FILE: kittehub/samples/google/calendar/README.md
 ================================================
----
 title: Google Calendar sample
 description: Samples using Google Calendar APIs
 integrations: ["calendar"]
 categories: ["Samples"]
----
-
-# Google Calendar Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/calendar)
 
 
 
@@ -11230,16 +10969,10 @@ def on_calendar_event_deleted(event):
 ================================================
 FILE: kittehub/samples/google/drive/README.md
 ================================================
----
 title: Google Drive sample
 description: Samples using Google Drive APIs
 integrations: ["drive"]
 categories: ["Samples"]
----
-
-# Google Drive Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/drive)
 
 
 
@@ -11333,16 +11066,10 @@ def create_new_document(_):
 ================================================
 FILE: kittehub/samples/google/forms/README.md
 ================================================
----
 title: Google Forms sample
 description: Samples using Google Forms APIs
 integrations: ["forms"]
 categories: ["Samples"]
----
-
-# Google Forms Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/forms)
 
 
 
@@ -11461,16 +11188,10 @@ def on_form_response(event):
 ================================================
 FILE: kittehub/samples/google/gemini/README.md
 ================================================
----
 title: Gemini sample
 description: Simple usage of the Gemini API
 integrations: ["googlegemini"]
 categories: ["AI", "Samples"]
----
-
-# Gemini Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/gemini)
 
 
 
@@ -11544,16 +11265,10 @@ def interactive_chat(_):
 ================================================
 FILE: kittehub/samples/google/gmail/README.md
 ================================================
----
 title: Gmail sample
 description: Samples using Gmail APIs
 integrations: ["gmail"]
 categories: ["Samples"]
----
-
-# Gmail Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/gmail)
 
 
 
@@ -11832,16 +11547,10 @@ def on_new_message(message):
 ================================================
 FILE: kittehub/samples/google/sheets/README.md
 ================================================
----
 title: Google Sheets sample
 description: Samples using Google Sheets APIs
 integrations: ["sheets"]
 categories: ["Samples"]
----
-
-# Google Sheets Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/google/sheets)
 
 
 
@@ -11985,16 +11694,10 @@ def _read_formula(id):
 ================================================
 FILE: kittehub/samples/http/README.md
 ================================================
----
 title: HTTP sample
 description: Samples using HTTP requests and webhooks
 integrations: ["http"]
 categories: ["Samples"]
----
-
-# HTTP Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/http)
 
 
 
@@ -12322,16 +12025,10 @@ def send_requests(event):
 ================================================
 FILE: kittehub/samples/hubspot/README.md
 ================================================
----
 title: HubSpot sample
 description: Simple usage of the HubSpot API
 integrations: ["hubspot"]
 categories: ["CRM", "Samples"]
----
-
-# HubSpot Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/hubspot)
 
 
 
@@ -12404,16 +12101,10 @@ def list_deals(event):
 ================================================
 FILE: kittehub/samples/openai_chatgpt/README.md
 ================================================
----
 title: OpenAI ChatGPT sample
 description: Samples using chatGPT APIs
 integrations: ["chatgpt"]
 categories: ["AI", "Samples"]
----
-
-# OpenAI ChatGPT Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/openai_chatgpt)
 
 
 
@@ -12523,16 +12214,10 @@ def on_http_post(event):
 ================================================
 FILE: kittehub/samples/runtime_events/README.md
 ================================================
----
 title: Runtime Events sample
 description: Samples using events in AutoKitteh - subscribe(), next_event(), unsubscribe()
 integrations: ["autokitteh"]
 categories: ["Samples"]
----
-
-# Runtime Event Handling Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/runtime_events)
 
 
 
@@ -12587,16 +12272,10 @@ def on_http_get_meow(event):
 ================================================
 FILE: kittehub/samples/scheduler/README.md
 ================================================
----
 title: Scheduler sample
 description: Samples using cron scheduler for workflows
 integrations: ["scheduler"]
 categories: ["Samples"]
----
-
-# Scheduler (Cron) Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/scheduler)
 
 
 
@@ -12707,16 +12386,10 @@ def _hours_ago(now, past_time):
 ================================================
 FILE: kittehub/samples/slack/README.md
 ================================================
----
 title: Slack sample
 description: Samples using Slack APIs
 integrations: ["slack"]
 categories: ["Samples"]
----
-
-# Slack Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/slack)
 
 
 
@@ -13074,16 +12747,10 @@ def on_slack_interaction(event):
 ================================================
 FILE: kittehub/samples/twilio/README.md
 ================================================
----
 title: Twilio sample
 description: Samples using Twilio APIs
 integrations: ["twilio"]
 categories: ["Samples"]
----
-
-# Twilio Sample
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=samples/twilio)
 
 
 
@@ -13184,16 +12851,10 @@ def on_http_get(event):
 ================================================
 FILE: kittehub/sheets_to_soap/README.md
 ================================================
----
 title: Google Sheets to SOAP Calculator
 description: Reads numeric values from Google Sheets and sends them to a SOAP-based calculator API
 integrations: ["sheets"]
 categories: ["Productivity", "DevOps"]
----
-
-# Google Sheets to SOAP Calculator
-
-This AutoKitteh project demonstrates how to integrate Google Sheets with a SOAP-based calculator service. It reads values from a Google Sheet and sends them to the SOAP service to perform addition.
 
 
 
@@ -13273,16 +12934,6 @@ zeep
 ================================================
 FILE: kittehub/slack_discord_sync/README.md
 ================================================
-# Slack-Discord Message Mirroring Workflow
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=slack_discord_sync)
-
-This project automates the process of mirroring messages between Slack and Discord channels. It listens for new message events in Discord or Slack and sends them to the corresponding channel on the other platform. This project is intended as a starting point rather than a complete solution.
-
-## Benefits
-
-- **Cross-Platform Communication:** Automatically mirrors messages between Discord and Slack, keeping teams connected across both platforms.
-- **Ease of Use:** Demonstrates how to easily integrate AutoKitteh with Slack and Discord APIs.
 
 
 
@@ -13389,16 +13040,50 @@ async def on_ready():
 ================================================
 FILE: kittehub/slack_support/README.md
 ================================================
----
 title: AI-driven Slack bot for assistance requests
 description: Automatically route help requests to the right expert based on topic analysis and expertise matching
 integrations: ["slack", "sheets", "googlegemini"]
 categories: ["AI", "Productivity"]
----
+ 1 | Itay    | U12345678 | cats,dogs
+ 2 | Haim    | U87654321 | russian
+```
 
-# AI Driven Slack Support
+This would happen:
 
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=slack_support)
+![demo](/slack_support/demo.png)
+
+## How It Works
+
+1. Receive a help request from a user
+2. Identify the request topic using Gemini AI
+3. Assign the request to the appropriate expert based on the expertise table
+4. Confirm the expert’s acceptance of the request
+5. Track the request until the expert resolves it
+6. Remind the expert if the request remains unresolved within a set time
+
+## Cloud Usage
+
+1. Initialize your connections (Google Sheets, Google Gemini, Slack)
+2. Set the `DIRECTORY_GOOGLE_SHEET_ID` project variable, in the "VARIABLES" tab, to point to your Google Sheet
+3. (Optional) Set the `HELP_REQUEST_TIMEOUT_MINUTES` project variable, in the "VARIABLES" tab, to set the timeout for unclaimed requests
+4. Deploy project
+
+## Trigger Workflow
+
+The workflow is triggered when the bot is mentioned in a message within a channel where it is a member. For example:
+
+```
+@autokitteh help me with my cat
+```
+
+When a topic matches an expert's expertise, the bot notifies them. The expert can use:
+
+- `!take` to claim the request
+- `!resolve` to mark it complete
+
+## Self-Hosted Deployment
+
+Follow [these detailed instructions](https://docs.autokitteh.com/get_started/deployment) to deploy the project on a self-hosted server.
 
 
 
@@ -13600,16 +13285,6 @@ If not taken or resolved, I will remind you in {HELP_REQUEST_TIMEOUT_MINUTES}m.
 ================================================
 FILE: kittehub/task_chain/README.md
 ================================================
-# Task Chain
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=task_chain)
-
-This project runs a sequence of tasks with fault tolerance.
-
-The workflow is resilient to errors in each step (with the ability to retry
-each failing step on-demand via Slack), as well as server-side failures
-(thanks to AutoKitteh's durable execution).
-
 
 
 
@@ -13949,16 +13624,10 @@ def ask_user_retry_or_abort(task_name, error, user_id) -> bool:
 ================================================
 FILE: kittehub/task_chain/single_workflow/basic/README.md
 ================================================
----
 title: Fault tolerant workflow with manual Slack approvals
 description: Runs a sequence of tasks with fault tolerance. In case of failure, user can decide to terminate or retry from the point of failure.
 integrations: ["slack"]
 categories: ["Durability"]
----
-
-# Fault Tolerant Workflow with Manual Slack Approvals
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=task_chain/single_workflow/basic)
 
 
 
@@ -14408,16 +14077,10 @@ def on_webhook(event):
 ================================================
 FILE: kittehub/webhook_to_jira/README.md
 ================================================
----
 title: Create Jira ticket from webhook data
 description: Create Jira issues automatically from HTTP webhooks
 integrations: ["jira", "http"]
 categories: ["DevOps"]
----
-
-# Create Jira Ticket From Webhook Data
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=webhook_to_jira)
 
 
 

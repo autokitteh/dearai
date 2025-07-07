@@ -1,10 +1,4 @@
----
 title: Quickstart
 description: Sample for quickstart
 integrations: ["http"]
 categories: ["Samples"]
----
-
-# Quickstart
-
-[![Start with AutoKitteh](https://autokitteh.com/assets/autokitteh-badge.svg)](https://app.autokitteh.cloud/template?name=quickstart)
