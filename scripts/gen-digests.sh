@@ -25,3 +25,4 @@ digest dearai digests/dearai.txt
 digest dearai/pyak digests/pyak.txt
 digest dearai/samples digests/samples.txt
 digest dearai/integrations digests/integrations.txt
+digest dearai/kittehub digests/kittehub.txt

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.autokitteh.dev/autokitteh/internal/backend/configset"
@@ -22,15 +23,23 @@ type Config struct {
 	MaxConcurrentWorkflows int                           `koanf:"max_concurrent_workflows"`
 	WorkerID               string                        `koanf:"worker_id"`
 	SessionWorkflow        temporalclient.WorkflowConfig `koanf:"session_workflow"`
+	EnablePoller           bool                          `koanf:"enable_poller"`
 }
 
 var (
 	Configs = configset.Set[Config]{
 		Default: &Config{
 			MaxConcurrentWorkflows: 1,
+			EnablePoller:           false,
 		},
 		Test: &Config{
-			WorkerID: "test-worker",
+			WorkerID:     "test-worker",
+			EnablePoller: true,
+		},
+		Dev: &Config{
+			MaxConcurrentWorkflows: 10,
+			EnablePoller:           true,
+			WorkerID:               "dev-worker",
 		},
 	}
 )
@@ -46,10 +55,11 @@ type executor struct {
 
 	stopChannel chan struct{}
 
-	inProgressWorkflowsCount int64
+	inProgressWorkflowsCount atomic.Int64
 	cfg                      *Config
 
 	executeLock sync.Mutex
+	metrics     *metrics
 }
 
 func (e *executor) WorkflowQueue() string {
@@ -58,12 +68,21 @@ func (e *executor) WorkflowQueue() string {
 
 // Start implements WorkflowResourcesManager.
 func (e *executor) Start(ctx context.Context) error {
+	if !e.cfg.EnablePoller {
+		e.l.Info("Workflow executor polling is disabled, skipping start")
+		return nil
+	}
+
+	if e.cfg.WorkerID == "" {
+		return errors.New("worker_id is required")
+	}
+
 	inProgress, err := e.svcs.DB.CountInProgressWorkflowExecutionRequests(ctx, e.cfg.WorkerID)
 	if err != nil {
 		return err
 	}
-	e.inProgressWorkflowsCount = inProgress
-	e.l.Info("Starting workflow executor", zap.Int64("in_progress_workflows", e.inProgressWorkflowsCount))
+	e.inProgressWorkflowsCount.Store(inProgress)
+	e.l.Info(fmt.Sprintf("Starting workflow executor. in_progress_workflows: %d", inProgress))
 	e.startPoller(ctx)
 	return nil
 }
@@ -74,10 +93,6 @@ func (e *executor) Stop(ctx context.Context) error {
 }
 
 func New(svcs Svcs, l *zap.Logger, cfg *Config) (*executor, error) {
-	if cfg.WorkerID == "" {
-		return nil, errors.New("worker_id is required")
-	}
-
 	sampledLogger := l.WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 		return zapcore.NewSamplerWithOptions(core, time.Second, 1, 0)
 	}))
@@ -89,22 +104,31 @@ func New(svcs Svcs, l *zap.Logger, cfg *Config) (*executor, error) {
 		stopChannel:   make(chan struct{}, 1),
 		cfg:           cfg,
 		executeLock:   sync.Mutex{},
+		metrics:       newMetrics(cfg.WorkerID),
 	}
 
 	return e, nil
 }
 
-func (e *executor) availableSlots() int {
-	return e.maxConcurrent - int(e.inProgressWorkflowsCount)
+func (e *executor) availableSlots(ctx context.Context) int {
+	active := int(e.inProgressWorkflowsCount.Load())
+	max := e.maxConcurrent
+	load := (float64(active) * 100.0) / float64(max)
+	e.metrics.SetWorkerLoad(ctx, load)
+	return max - active
 }
 
 func (e *executor) Execute(ctx context.Context, sessionID sdktypes.SessionID, args any, memo map[string]string) error {
-	return e.svcs.DB.CreateWorkflowExecutionRequest(ctx, db.WorkflowExecutionRequest{
+	if err := e.svcs.DB.CreateWorkflowExecutionRequest(ctx, db.WorkflowExecutionRequest{
 		SessionID:  sessionID,
 		WorkflowID: workflowID(sessionID),
 		Args:       args,
 		Memo:       memo,
-	})
+	}); err != nil {
+		return err
+	}
+	e.metrics.IncrementQueuedWorkflows(ctx)
+	return nil
 }
 
 func (e *executor) startPoller(ctx context.Context) {
@@ -129,11 +153,15 @@ func (e *executor) startPoller(ctx context.Context) {
 }
 
 func (e *executor) NotifyDone(ctx context.Context, id string) error {
-	e.inProgressWorkflowsCount--
+	e.inProgressWorkflowsCount.Add(-1)
+
+	e.metrics.DecrementActiveWorkflows(ctx)
+
 	if err := e.svcs.DB.UpdateRequestStatus(ctx, id, "done"); err != nil {
 		e.l.Error("Failed to update workflow execution request status", zap.Error(err), zap.String("workflow_id", id))
 	}
-	e.l.Info(fmt.Sprintf("Active workflows: %d out of %d", e.inProgressWorkflowsCount, e.maxConcurrent))
+
+	e.l.Info(fmt.Sprintf("Workflow Done %s. Active workflows: %d out of %d", id, e.inProgressWorkflowsCount.Load(), e.maxConcurrent), zap.String("session_id", id))
 	return nil
 }
 
@@ -141,7 +169,7 @@ func (e *executor) runOnce(ctx context.Context) {
 	e.executeLock.Lock()
 	defer e.executeLock.Unlock()
 
-	availableSlots := e.availableSlots()
+	availableSlots := e.availableSlots(ctx)
 	if availableSlots <= 0 {
 		e.sampledLogger.Info("Max concurrent workflows reached, waiting for free slots", zap.Int("MaxConcurrent", e.maxConcurrent))
 		return
@@ -160,11 +188,14 @@ func (e *executor) runOnce(ctx context.Context) {
 			continue
 		}
 
-		if err := e.svcs.DB.UpdateRequestStatus(ctx, job.WorkflowID, "in_progress"); err != nil {
-			e.l.Error("Failed to delete workflow execution request", zap.Error(err), zap.String("session_id", job.SessionID.String()))
+		if job.RetryCount == 1 {
+			// we don't want to dequeue it twice if we retry it
+			e.metrics.DecrementQueuedWorkflows(ctx)
+		} else {
+			e.metrics.IncrementRetriedWorkflowsCounter(ctx)
 		}
 
-		e.sampledLogger.Info(fmt.Sprintf("Active workflows: %d out of %d", e.inProgressWorkflowsCount, e.maxConcurrent))
+		e.sampledLogger.Info(fmt.Sprintf("Workflow Started. Active workflows: %d out of %d", e.inProgressWorkflowsCount.Load(), e.maxConcurrent))
 	}
 }
 
@@ -173,7 +204,9 @@ func (e *executor) executeAndIncrement(ctx context.Context, sessionID sdktypes.S
 	if err != nil {
 		return err
 	}
-	e.inProgressWorkflowsCount++
+	e.inProgressWorkflowsCount.Add(1)
+
+	e.metrics.IncrementActiveWorkflows(ctx)
 
 	return nil
 }

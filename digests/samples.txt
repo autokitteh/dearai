@@ -10,7 +10,7 @@ Directory structure:
         └── program.py
 
 ================================================
-File: reviewkitteh/autokitteh.yaml
+FILE: reviewkitteh/autokitteh.yaml
 ================================================
 # This YAML file is a declarative manifest that describes the setup of
 # an AutoKitteh project that integrates GitHub, Google Sheets, and Slack.
@@ -46,7 +46,7 @@ project:
 
 
 ================================================
-File: reviewkitteh/program.py
+FILE: reviewkitteh/program.py
 ================================================
 """Listen for GitHub pull requests and meow at random people.
 
@@ -114,7 +114,7 @@ def _log(msg):
 
 
 ================================================
-File: slack/approval_message.json.txt
+FILE: slack/approval_message.json.txt
 ================================================
 [
     {
@@ -170,7 +170,7 @@ File: slack/approval_message.json.txt
 
 
 ================================================
-File: slack/autokitteh.yaml
+FILE: slack/autokitteh.yaml
 ================================================
 # This YAML file is a declarative manifest that describes the setup
 # of an AutoKitteh project that demonstrates 2-way integration with
@@ -210,7 +210,7 @@ project:
 
 
 ================================================
-File: slack/message.json
+FILE: slack/message.json
 ================================================
 {
     "blocks": [
@@ -249,7 +249,7 @@ File: slack/message.json
 
 
 ================================================
-File: slack/program.py
+FILE: slack/program.py
 ================================================
 """This program demonstrates AutoKitteh's 2-way Slack integration.
 

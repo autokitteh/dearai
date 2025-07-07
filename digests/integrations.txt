@@ -5,7 +5,7 @@ Directory structure:
     └── SLACK.md
 
 ================================================
-File: GITHUB.md
+FILE: GITHUB.md
 ================================================
 # GitHub Integration
 
@@ -16,7 +16,7 @@ See https://docs.github.com/en/rest/using-the-rest-api/github-event-types?apiVer
 
 
 ================================================
-File: GMAIL.md
+FILE: GMAIL.md
 ================================================
 # gmail Integration
 
@@ -28,7 +28,7 @@ Reacting on gmail state change can be done in either of two ways:
 
 
 ================================================
-File: SLACK.md
+FILE: SLACK.md
 ================================================
 # Slack Integration
 

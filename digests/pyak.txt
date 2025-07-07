@@ -31,7 +31,7 @@ Directory structure:
     └── zoom.py
 
 ================================================
-File: __init__.py
+FILE: __init__.py
 ================================================
 """AutoKitteh Python SDK."""
 from . import errors
@@ -40,16 +40,18 @@ from .attr_dict import AttrDict
 from .event import Event
 from .events import next_event, start, subscribe, unsubscribe
 from .signals import Signal, next_signal, signal
-from .store import get_value, mutate_value, set_value, del_value, list_values_keys
-__all__ = ['AttrDict', 'errors', 'start', 'activity', 'inhibit_activities',
-    'register_no_activity', 'Event', 'next_event', 'subscribe',
-    'unsubscribe', 'next_signal', 'signal', 'Signal', 'del_value',
-    'get_value', 'list_values_keys', 'mutate_value', 'set_value']
+from .errors import AutoKittehError
+from .store import get_value, mutate_value, set_value, del_value, list_values_keys, store
+__all__ = ['AttrDict', 'errors', 'start', 'AutoKittehError', 'activity',
+    'inhibit_activities', 'register_no_activity', 'Event', 'next_event',
+    'subscribe', 'unsubscribe', 'next_signal', 'signal', 'Signal',
+    'del_value', 'get_value', 'list_values_keys', 'mutate_value',
+    'set_value', 'store']
 
 
 
 ================================================
-File: activities.py
+FILE: activities.py
 ================================================
 """Decorator to mark a function as a Temporal activity."""
 from typing import Callable
@@ -103,7 +105,7 @@ def register_no_activity(items: list[Callable]) ->None:
 
 
 ================================================
-File: anthropic.py
+FILE: anthropic.py
 ================================================
 """Initialize an Anthropic client, based on an AutoKitteh connection."""
 import os
@@ -135,7 +137,7 @@ def anthropic_client(connection: str) ->Anthropic:
 
 
 ================================================
-File: asana.py
+FILE: asana.py
 ================================================
 import os
 import asana
@@ -164,7 +166,7 @@ def asana_client(connection: str) ->asana.ApiClient:
 
 
 ================================================
-File: atlassian.py
+FILE: atlassian.py
 ================================================
 """Initialize an Atlassian client, based on an AutoKitteh connection."""
 from datetime import UTC, datetime
@@ -251,7 +253,7 @@ def get_base_url(connection: str) ->(str | None):
 
 
 ================================================
-File: attr_dict.py
+FILE: attr_dict.py
 ================================================
 """Helper class to allow attribute access to dictionary keys."""
 
@@ -269,7 +271,7 @@ class AttrDict(dict):
 
 
 ================================================
-File: auth0.py
+FILE: auth0.py
 ================================================
 import os
 from .connections import check_connection_name
@@ -298,7 +300,7 @@ def auth0_client(connection: str, **kwargs) ->Auth0:
 
 
 ================================================
-File: aws.py
+FILE: aws.py
 ================================================
 """Initialize a Boto3 (AWS SDK) client, based on an AutoKitteh connection."""
 import os
@@ -332,7 +334,7 @@ def boto3_client(connection: str, service: str, region: str='', **kwargs):
 
 
 ================================================
-File: connections.py
+FILE: connections.py
 ================================================
 """AutoKitteh connection-related utilities."""
 from datetime import UTC, datetime
@@ -363,7 +365,7 @@ def refresh_oauth(integration: str, connection: str) ->tuple[str, datetime]:
 
 
 ================================================
-File: discord.py
+FILE: discord.py
 ================================================
 import os
 import discord
@@ -398,7 +400,7 @@ def bot_token(connection: str):
 
 
 ================================================
-File: errors.py
+FILE: errors.py
 ================================================
 """AutoKitteh SDK errors."""
 from google.auth.exceptions import RefreshError
@@ -426,7 +428,7 @@ class AtlassianOAuthError(AutoKittehError):
 
 
 ================================================
-File: event.py
+FILE: event.py
 ================================================
 """AutoKitteh Event class"""
 from dataclasses import dataclass
@@ -442,7 +444,7 @@ class Event:
 
 
 ================================================
-File: events.py
+FILE: events.py
 ================================================
 """Un/subscribe and consume AutoKitteh connection events."""
 from datetime import timedelta
@@ -451,12 +453,16 @@ from .attr_dict import AttrDict
 
 
 def subscribe(source: str, filter: str='') ->str:
-    """Subscribe to events on connection. Optional filter is a CEL expression."""
+    """Subscribe to events on connection. Optional filter is a CEL expression.
+
+    Cannot be used in an activity."""
     ...
 
 
 def unsubscribe(subscription_id: str) ->None:
-    """Unsubscribe from events."""
+    """Unsubscribe from events.
+
+    Cannot be used in an activity."""
     ...
 
 
@@ -466,19 +472,23 @@ def next_event(subscription_id: (str | list[str]), *, timeout: (timedelta |
 
     If timeout is not None and there are no new events after timeout, this function will
     return None.
+
+    Cannot be used in an activity.
     """
     ...
 
 
 def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
     project: str='') ->str:
-    """Start a new session."""
+    """Start a new session.
+
+    Cannot be used in an activity."""
     ...
 
 
 
 ================================================
-File: github.py
+FILE: github.py
 ================================================
 """Initialize a GitHub client, based on an AutoKitteh connection."""
 import os
@@ -519,7 +529,7 @@ class AppAuth(Auth.AppAuth):
 
 
 ================================================
-File: google.py
+FILE: google.py
 ================================================
 """Initialize Google API clients, based on AutoKitteh connections."""
 from datetime import UTC, datetime
@@ -720,7 +730,7 @@ def google_id(url: str) ->str:
 
 
 ================================================
-File: height.py
+FILE: height.py
 ================================================
 """Initialize a Height client, based on an AutoKitteh connection."""
 from requests import Session
@@ -748,7 +758,7 @@ def height_client(connection: str) ->Session:
 
 
 ================================================
-File: hubspot.py
+FILE: hubspot.py
 ================================================
 """Initialize a HubSpot client, based on an AutoKitteh connection."""
 import os
@@ -776,7 +786,7 @@ def hubspot_client(connection: str, **kwargs) ->HubSpot:
 
 
 ================================================
-File: kubernetes.py
+FILE: kubernetes.py
 ================================================
 import json
 import os
@@ -810,7 +820,7 @@ def kubernetes_client(connection: str) ->ModuleType:
 
 
 ================================================
-File: linear.py
+FILE: linear.py
 ================================================
 """Initialize a Linear client, based on an AutoKitteh connection."""
 from requests import Session
@@ -838,7 +848,7 @@ def linear_client(connection: str) ->Session:
 
 
 ================================================
-File: microsoft.py
+FILE: microsoft.py
 ================================================
 """Initialize Microsoft Graph SDK clients, based on AutoKitteh connections."""
 from datetime import datetime, timedelta, UTC
@@ -880,7 +890,7 @@ class OAuthTokenProvider(credentials.TokenCredential):
 
 
 ================================================
-File: oauth2_session.py
+FILE: oauth2_session.py
 ================================================
 import requests
 from os import getenv
@@ -900,7 +910,7 @@ class OAuth2Session(requests.Session):
 
 
 ================================================
-File: openai.py
+FILE: openai.py
 ================================================
 """Initialize an OpenAI client, based on an AutoKitteh connection."""
 import os
@@ -932,7 +942,7 @@ def openai_client(connection: str) ->OpenAI:
 
 
 ================================================
-File: packages.py
+FILE: packages.py
 ================================================
 import re
 import sys
@@ -957,7 +967,7 @@ def install(*packages):
 
 
 ================================================
-File: salesforce.py
+FILE: salesforce.py
 ================================================
 """Initialize a Salesforce client, based on an AutoKitteh connection."""
 import os
@@ -985,7 +995,7 @@ def salesforce_client(connection: str, **kwargs) ->Salesforce:
 
 
 ================================================
-File: signals.py
+FILE: signals.py
 ================================================
 """Send and receive signals."""
 from datetime import timedelta
@@ -999,19 +1009,23 @@ class Signal:
 
 
 def signal(session_id: str, name: str, payload: any=None) ->None:
-    """Signal a session."""
+    """Signal a session.
+
+    Cannot be used in an activity."""
     ...
 
 
 def next_signal(name: (str | list[str]), *, timeout: (timedelta | int |
     float)=None) ->(Signal | None):
-    """Get the next signal."""
+    """Get the next signal.
+
+    Cannot be used in an activity."""
     ...
 
 
 
 ================================================
-File: slack.py
+FILE: slack.py
 ================================================
 """Slack client initialization, and other helper functions."""
 import os
@@ -1060,11 +1074,23 @@ def normalize_channel_name(name: str) ->str:
 
 
 ================================================
-File: store.py
+FILE: store.py
 ================================================
+from collections.abc import MutableMapping
 from typing import Any
 from enum import StrEnum
 _local_dev_store = {}
+
+
+class Store(MutableMapping):
+    """Store it a dict like interface to ak store.
+
+    Values must be pickleable, see
+    https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+    """
+
+
+store = Store()
 
 
 class Op(StrEnum):
@@ -1142,7 +1168,7 @@ def list_values_keys() ->list[str]:
 
 
 ================================================
-File: twilio.py
+FILE: twilio.py
 ================================================
 """Initialize a Twilio client, based on an AutoKitteh connection."""
 import os
@@ -1172,7 +1198,7 @@ def twilio_client(connection: str) ->Client:
 
 
 ================================================
-File: zoom.py
+FILE: zoom.py
 ================================================
 """Initialize a Zoom client, based on an AutoKitteh connection."""
 from requests import Session

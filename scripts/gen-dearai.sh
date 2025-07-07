@@ -11,8 +11,13 @@ find src -type f ! -name "_*" -not -path "*/_*/*" -exec uvx jinja2 --strict {} -
 
 cp -r src/pyak dearai/pyak
 cp -r src/samples dearai/samples
+cp -r data/kittehub-main dearai/kittehub
 
+# READMEs are long and boring.
 find dearai/samples -name "README.md" -exec rm -f {} \;
+
+# truncate all README.md files to the first 6 lines, which should be the metadata.
+find . -type f -name "README.md" -exec sh -c 'head -n 6 "$1" > tmp && mv tmp "$1"' _ {} \;
 
 mv dearai/src/* dearai
 rm -fR dearai/src

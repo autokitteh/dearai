@@ -18,6 +18,8 @@ git clone --depth=1 --branch=main https://github.com/autokitteh/docs.autokitteh.
 rm -fR docs.autokitteh.com/.git 
 
 find kittehub-main -name autokitteh.yaml -exec grep integration: {} \; | cut -d:  -f 2 | xargs -n 1 echo - | sort -u > integrations.txt
+rm -fR kittehub-main/.git
+find kittehub-main/ -maxdepth 1 -type f -exec rm -f {} \;
 
 sed -n '/^#.*/!p' <  "autokitteh-main/runtimes/pythonrt/py-sdk/docs/requirements.txt" | sed -n "/^$/!p" > requirements.txt
 

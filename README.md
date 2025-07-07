@@ -8,12 +8,3 @@ Add the `dearai` folder or `digests/dearai.txt` to your favorite LLM to learn ho
 
 ```
 $ make
-```
-
-Will remove and recreate `dearai/` and `digests/` from files in `src/`. Each file in `src/` runs through `jinja2`.
-All files that start with `_` are not processed, but can be used as inputs to other files, for example via `{% include ... %}` directives.
-
-## DEPENDENCIES
-
-- git
-- uv & uvx

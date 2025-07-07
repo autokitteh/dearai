@@ -1,6 +1,18 @@
+from collections.abc import MutableMapping
 from typing import Any
 from enum import StrEnum
 _local_dev_store = {}
+
+
+class Store(MutableMapping):
+    """Store it a dict like interface to ak store.
+
+    Values must be pickleable, see
+    https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+    """
+
+
+store = Store()
 
 
 class Op(StrEnum):

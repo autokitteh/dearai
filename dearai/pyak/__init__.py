@@ -5,8 +5,10 @@ from .attr_dict import AttrDict
 from .event import Event
 from .events import next_event, start, subscribe, unsubscribe
 from .signals import Signal, next_signal, signal
-from .store import get_value, mutate_value, set_value, del_value, list_values_keys
-__all__ = ['AttrDict', 'errors', 'start', 'activity', 'inhibit_activities',
-    'register_no_activity', 'Event', 'next_event', 'subscribe',
-    'unsubscribe', 'next_signal', 'signal', 'Signal', 'del_value',
-    'get_value', 'list_values_keys', 'mutate_value', 'set_value']
+from .errors import AutoKittehError
+from .store import get_value, mutate_value, set_value, del_value, list_values_keys, store
+__all__ = ['AttrDict', 'errors', 'start', 'AutoKittehError', 'activity',
+    'inhibit_activities', 'register_no_activity', 'Event', 'next_event',
+    'subscribe', 'unsubscribe', 'next_signal', 'signal', 'Signal',
+    'del_value', 'get_value', 'list_values_keys', 'mutate_value',
+    'set_value', 'store']

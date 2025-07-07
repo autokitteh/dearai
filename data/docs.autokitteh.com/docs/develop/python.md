@@ -538,6 +538,27 @@ def on_event(event):
     ...  # More code
 ```
 
+### You Can't Call Event Functions in an Activity
+
+The AutoKitteh SDK [event]
+
+You can't use [events][events] or [signals][signals] functions inside an activity.
+The following code errs:
+
+```python
+@autokitteh.activity
+def log_slack_messages(slack_id):
+    # THE FOLLOWING LINE GIVES AN ERROR
+    slack_id = autokitteh.subscribe('slack_conn', "event_type == 'message_posted'")
+    while True:
+        event = autokitteh.next_event(slack_id, timeout=3)
+        print('SLACK:', event)
+```
+
+
+[events]: https://autokitteh.readthedocs.io/en/latest/#module-autokitteh.events
+[signals]: https://autokitteh.readthedocs.io/en/latest/#module-autokitteh.signals
+
 ## How It Works
 
 AutoKitteh first loads your code and then instruments every function call that is external to your module.
