@@ -1,0 +1,6 @@
+position: 5
+label: Databases
+link:
+  type: generated-index
+  slug: /databases
+  description: Database connections and operations in AutoKitteh workflows.

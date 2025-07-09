@@ -1,5 +1,4 @@
 """AutoKitteh SDK errors."""
-from google.auth.exceptions import RefreshError
 
 
 class AutoKittehError(Exception):

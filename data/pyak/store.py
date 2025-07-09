@@ -7,6 +7,8 @@ _local_dev_store = {}
 class Store(MutableMapping):
     """Store it a dict like interface to ak store.
 
+    Note that read-modify-write operations are not atomic.
+
     Values must be pickleable, see
     https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
     """
@@ -20,6 +22,7 @@ class Op(StrEnum):
     SET = 'set'
     GET = 'get'
     DEL = 'del'
+    ADD = 'add'
 
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
@@ -63,6 +66,23 @@ def set_value(key: str, value: Any) ->None:
 
     Raises:
         AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def add_values(key: str, value: (int | float)) ->(int | float):
+    """Add to a stored value.
+
+    This operation is atomic.
+
+    If key is not found, its initial value is set to the provided value.
+
+    Args:
+        key: Key of the value to set.
+        value: Value to add. Value must be serializable.
+
+    Returns:
+        New result value. Always the same type as the value stored under the key.
     """
     ...
 

@@ -41,12 +41,12 @@ from .event import Event
 from .events import next_event, start, subscribe, unsubscribe
 from .signals import Signal, next_signal, signal
 from .errors import AutoKittehError
-from .store import get_value, mutate_value, set_value, del_value, list_values_keys, store
+from .store import add_values, del_value, get_value, list_values_keys, mutate_value, set_value, store
 __all__ = ['AttrDict', 'errors', 'start', 'AutoKittehError', 'activity',
     'inhibit_activities', 'register_no_activity', 'Event', 'next_event',
     'subscribe', 'unsubscribe', 'next_signal', 'signal', 'Signal',
-    'del_value', 'get_value', 'list_values_keys', 'mutate_value',
-    'set_value', 'store']
+    'add_values', 'del_value', 'get_value', 'list_values_keys',
+    'mutate_value', 'set_value', 'store']
 
 
 
@@ -403,7 +403,6 @@ def bot_token(connection: str):
 FILE: errors.py
 ================================================
 """AutoKitteh SDK errors."""
-from google.auth.exceptions import RefreshError
 
 
 class AutoKittehError(Exception):
@@ -947,6 +946,7 @@ FILE: packages.py
 import re
 import sys
 from subprocess import run
+from shutil import which
 
 
 def install(*packages):
@@ -1085,6 +1085,8 @@ _local_dev_store = {}
 class Store(MutableMapping):
     """Store it a dict like interface to ak store.
 
+    Note that read-modify-write operations are not atomic.
+
     Values must be pickleable, see
     https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
     """
@@ -1098,6 +1100,7 @@ class Op(StrEnum):
     SET = 'set'
     GET = 'get'
     DEL = 'del'
+    ADD = 'add'
 
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
@@ -1141,6 +1144,23 @@ def set_value(key: str, value: Any) ->None:
 
     Raises:
         AutoKittehError: Value is too large.
+    """
+    ...
+
+
+def add_values(key: str, value: (int | float)) ->(int | float):
+    """Add to a stored value.
+
+    This operation is atomic.
+
+    If key is not found, its initial value is set to the provided value.
+
+    Args:
+        key: Key of the value to set.
+        value: Value to add. Value must be serializable.
+
+    Returns:
+        New result value. Always the same type as the value stored under the key.
     """
     ...
 

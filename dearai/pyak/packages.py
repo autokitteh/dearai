@@ -1,6 +1,7 @@
 import re
 import sys
 from subprocess import run
+from shutil import which
 
 
 def install(*packages):
