@@ -16,8 +16,8 @@ cp -r data/kittehub-main dearai/kittehub
 # READMEs are long and boring.
 find dearai/samples -name "README.md" -exec rm -f {} \;
 
-# truncate all README.md files to the first 6 lines, which should be the metadata.
-find dearai/kittehub -type f -name "README.md" -exec sh -c 'awk "/^---/{f=!f; next} f" "$1" > tmp && mv tmp "$1"' _ {} \;
+# truncate all README.md files to the metadata.
+find dearai/kittehub -type f -name "README.md" -exec sh -c 'awk "BEGIN{c=0} /^---$/ {c++; next} c==1 {print} c==2 {exit}" "$1" > tmp && mv tmp "$1"' _ {} \;
 
 mv dearai/src/* dearai
 rm -fR dearai/src

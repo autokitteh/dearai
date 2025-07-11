@@ -26,6 +26,7 @@ Directory structure:
     ├── pyak/
     │   ├── __init__.py
     │   ├── activities.py
+    │   ├── airtable.py
     │   ├── anthropic.py
     │   ├── asana.py
     │   ├── atlassian.py
@@ -90,6 +91,7 @@ hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
 openai ~= 1.57
+pyairtable ~= 3.1
 PyGithub ~= 2.6
 simple-salesforce ~= 1.12
 slack-sdk ~= 3.33
@@ -1236,6 +1238,38 @@ def register_no_activity(items: list[Callable]) ->None:
     class are marked as non-activities.
 
     This helps speeding up your code, but you might risk non-deterministic behavior.
+    """
+    ...
+
+
+
+================================================
+FILE: pyak/airtable.py
+================================================
+"""Initialize an Airtable client, based on an AutoKitteh connection."""
+import os
+from pyairtable import Api
+from .connections import check_connection_name, refresh_oauth
+from .errors import ConnectionInitError, OAuthRefreshError
+
+
+def airtable_client(connection: str) ->Api:
+    """Initialize an Airtable client, based on an AutoKitteh connection.
+
+    API reference:
+    https://pyairtable.readthedocs.io/en/stable/getting-started.html
+    https://github.com/gtalarico/pyairtable
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Requests session object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
     """
     ...
 
