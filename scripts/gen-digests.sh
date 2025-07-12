@@ -25,6 +25,7 @@ mkdir digests
 
 digest dearai digests/dearai.txt -e kittehub
 digest dearai/pyak digests/pyak.txt
-digest dearai/samples digests/samples.txt
 digest dearai/integrations digests/integrations.txt
 digest dearai/kittehub digests/kittehub.txt
+
+./scripts/filter_digest.sh digests/kittehub.txt --include-tag "essential" > digests/kittehub-essential.txt

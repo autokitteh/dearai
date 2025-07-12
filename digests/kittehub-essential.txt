@@ -1,0 +1,4489 @@
+================================================
+FILE: ai_chat_assistant/README.md
+================================================
+title: AI chat assistant
+description: A Slack-based automation assistant that leverages ChatGPT to manage and respond to messages by integrating with GitHub and Google Sheets.
+integrations: ["chatgpt", "github", "sheets", "slack"]
+categories: ["AI"]
+tags: ["subscribe", "next_event", "event_loops", "long_running", "interactive_workflows", "essential"]
+
+
+
+
+================================================
+FILE: ai_chat_assistant/ai.py
+================================================
+"""This module provides the main functionality for the AI chatbot assistant.
+
+It integrates with Slack and uses OpenAI's GPT model to generate responses based
+on user messages. It also interacts with Google Sheets to store and retrieve data.
+"""
+
+import json
+import os
+from pathlib import Path
+
+import autokitteh
+from autokitteh.openai import openai_client
+from autokitteh.slack import slack_client
+
+import helpers
+from repo_scanner import find_unanswered_comments
+
+
+REPO_NAME = os.getenv("REPO_NAME")
+SHEET_ID = os.getenv("SHEET_ID")
+SHEET_NAME = os.getenv("SHEET_NAME")
+SYSTEM_PROMPT = Path("prompt.txt").read_text()
+
+chatgpt = openai_client("chatgpt_conn")
+slack = slack_client("slack_conn")
+
+
+def on_activate(_):
+    """Entrypoint for the AI chatbot assistant."""
+    while True:
+        print("Waiting for a message...")
+        subs = autokitteh.subscribe("slack_conn", "event_type == 'message'")
+        data = autokitteh.next_event(subs)
+        if data:
+            on_slack_message(data)
+
+
+def on_slack_message(data):
+    """Determine the action to take based on an incoming Slack message.
+
+    Args:
+        data: The data from the Slack event.
+    """
+    user, user_text = data["user"], data["text"]
+    response = get_chatgpt_response(user_text)
+
+    # Always send initial response.
+    slack.chat_postMessage(channel=user, text=response["message"])
+
+    match response["action"]:
+        case "list":
+            rows = helpers.get_sheets_data(SHEET_NAME)
+            message = helpers.format_messages_for_slack(rows)
+            slack.chat_postMessage(channel=user, text=message)
+        case "scan":
+            comments = find_unanswered_comments(REPO_NAME, user)
+            helpers.append_row_to_sheet(SHEET_NAME, comments)
+            rows = helpers.get_sheets_data(SHEET_NAME)
+            message = helpers.format_messages_for_slack(rows)
+            slack.chat_postMessage(channel=user, text=message)
+
+
+def get_chatgpt_response(user_text):
+    response = chatgpt.chat.completions.create(
+        model="gpt-4o-mini",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_text},
+        ],
+    )
+    return json.loads(response.choices[0].message.content)
+
+
+
+
+================================================
+FILE: ai_chat_assistant/autokitteh.yaml
+================================================
+version: v1
+
+project:
+  name: ai_chatbot_assistant
+
+  vars:
+    - name: SHEET_ID
+      value:
+    - name: SHEET_NAME
+      value:
+    - name: REPO_NAME
+      value:
+
+  connections:
+    - name: chatgpt_conn
+      integration: chatgpt
+    - name: github_conn
+      integration: github
+    - name: sheets_conn
+      integration: googlesheets
+    - name: slack_conn
+      integration: slack
+
+
+
+
+================================================
+FILE: ai_chat_assistant/helpers.py
+================================================
+"""Helper functions for Google Sheets and Slack."""
+
+import os
+
+import autokitteh
+from autokitteh.google import google_sheets_client
+
+
+sheets = google_sheets_client("sheets_conn")
+
+SHEET_ID = os.getenv("SHEET_ID")
+
+
+@autokitteh.activity
+def get_sheets_data(sheet_name: str) -> dict:
+    """Get data from the specified Google Sheet.
+
+    Args:
+        sheet_name (str): The name of the sheet (tab).
+
+    Returns:
+        dict: The data from the sheet.
+    """
+    range_name = f"{sheet_name}!A:D"
+    return (
+        sheets.spreadsheets()
+        .values()
+        .get(spreadsheetId=SHEET_ID, range=range_name)
+        .execute()
+    )
+
+
+@autokitteh.activity
+def append_row_to_sheet(sheet_name: str, values: list):
+    """Appends a row to the specified Google Sheet.
+
+    Args:
+        spreadsheet_id (str): The Google Spreadsheet ID.
+        sheet_name (str): The name of the sheet (tab).
+        values (list): List of tuples containing (pr_number, author, body, url).
+    """
+    range_name = f"{sheet_name}!A:D"  # Use columns A-D for the 4 values.
+    # Transform list of tuples into list of lists for the API.
+    formatted_values = [
+        [str(comment_id), author, body, url] for comment_id, author, body, url in values
+    ]
+    body = {"values": formatted_values}
+
+    sheets.spreadsheets().values().append(
+        spreadsheetId=SHEET_ID,
+        range=range_name,
+        valueInputOption="RAW",
+        insertDataOption="INSERT_ROWS",
+        body=body,
+    ).execute()
+
+
+def format_messages_for_slack(rows):
+    if not rows or "values" not in rows:
+        return "No messages found."
+
+    formatted_messages = []
+    for row in rows["values"]:
+        comment_id, author, body, url = row
+        message = (
+            f"*Comment ID:* {comment_id}\n"
+            f"*Author:* {author}\n"
+            f"*Message:* {body}\n"
+            f"*URL:* {url}\n"
+            "---"  # Add separator between messages.
+        )
+        formatted_messages.append(message)
+
+    return "\n".join(formatted_messages)
+
+
+
+
+================================================
+FILE: ai_chat_assistant/prompt.txt
+================================================
+You are an automation assistant that interprets plain-English requests into a structured JSON response.
+
+Your response must be a JSON object with exactly two fields:
+- "action": One of the following single-word responses: "list", "schedule", "track", "scan", "error", or "help".
+- "message": A short, natural-sounding explanation of why the action was chosen or an error message. The message should be addressed to the user.
+
+### Key Rules:
+1. The "action" field must contain exactly one of the approved values.
+2. The "message" field should be clear, concise, and slightly conversational to make responses feel more natural.
+3. **Implemented actions**: "list", "scan".
+   - Respond with the correct action and an appropriate message.
+   - Example for "scan":
+     {
+       "action": "scan",
+       "message": "Got it! I'll start scanning now. This might take up to a minute."
+     }
+   - Example for "list":
+     {
+       "action": "list",
+       "message": "Sure! Here's what I found for you."
+     }
+   - If the request implies listing or scanning (e.g., "check for unresponded messages" → "scan", "show me what I haven't responded to" → "list"), interpret it accordingly.
+4. **Not implemented actions**: "schedule", "track".
+   - Respond with an "error" action:
+     {
+       "action": "error",
+       "message": "Sorry, that feature isn't available yet."
+     }
+5. **Unrecognized requests**:
+   - If the input doesn’t match a known action or a reasonable variation, respond with:
+     {
+       "action": "error",
+       "message": "I didn’t quite get that. Try asking for 'list', 'scan', or 'help'."
+     }
+6. **Help requests**:
+   - If the user asks for help, respond with "help" and provide an overview of the available actions:
+     {
+       "action": "help",
+       "message": "I can list items, scan for updates, or provide help. Let me know what you need!"
+     }
+7. Always return **valid JSON**. Do not include any additional text outside the JSON response.
+
+
+
+
+================================================
+FILE: ai_chat_assistant/repo_scanner.py
+================================================
+"""Find unanswered GitHub PR comments older than 24 hours.
+
+It tracks processed comments with Google Sheets,
+and retrieves user information from Slack.
+"""
+
+import datetime
+import os
+
+from autokitteh import github, google
+from autokitteh.slack import slack_client
+
+import helpers
+
+
+g = github.github_client("github_conn")
+slack = slack_client("slack_conn")
+sheets = google.google_sheets_client("sheets_conn")
+
+
+SHEET_ID = os.getenv("SHEET_ID")
+SHEET_NAME = os.getenv("SHEET_NAME")
+
+
+def find_unanswered_comments(
+    repo_name: str, user: str
+) -> list[tuple[str, str, str, str]]:
+    """Entrypoint for finding unanswered comments."""
+    print("Finding unanswered messages...")
+    sheets_data = helpers.get_sheets_data(SHEET_NAME)
+    comment_ids_set = set()
+    if "values" in sheets_data:
+        for row in sheets_data["values"]:
+            comment_ids_set.add(int(row[0]))
+    return get_github_comments(comment_ids_set, repo_name, user)
+
+
+def get_github_comments(
+    comment_ids_set: set,
+    repo_name: str,
+    user: str,
+) -> list[tuple[str, str, str, str]]:
+    """Get all comments from GitHub that haven't been responded to in over 24 hours."""
+    repo = g.get_repo(repo_name)
+    pulls = repo.get_pulls(state="open")
+
+    user_email = get_email_by_slack_user_id(user)
+    github_user_id = get_github_user_id_by_email(user_email)
+
+    unresponded = []
+
+    # Process each pull request.
+    for pr in pulls:
+        # Combine issue and inline comments.
+        issue_comments = list(pr.get_issue_comments())
+        inline_comments = list(pr.get_comments())
+        for comments, is_inline in [(issue_comments, False), (inline_comments, True)]:
+            process_comments(
+                comments,
+                comment_ids_set,
+                unresponded,
+                github_user_id,
+                is_inline=is_inline,
+            )
+
+    return unresponded
+
+
+def process_comments(
+    comments: list,
+    comment_ids_set: set,
+    unresponded: list,
+    github_user_id: str,
+    is_inline: bool = False,
+):
+    """Process either issue comments (PR discussion) or inline review comments."""
+    for comment in comments:
+        if should_skip_comment(comment, github_user_id):
+            continue
+
+        if has_been_responded_to(comment, comments, is_inline, github_user_id):
+            continue
+
+        if comment.id not in comment_ids_set:
+            unresponded.append(
+                (comment.id, comment.user.login, comment.body, comment.html_url)
+            )
+            comment_ids_set.add(comment.id)
+
+
+def has_been_responded_to(
+    target_comment, potential_responses, is_inline, github_user_id
+):
+    # Skip if comment is less than 24 hours old.
+    now = datetime.datetime.now(datetime.UTC)
+    if now - target_comment.created_at < datetime.timedelta(hours=24):
+        return True
+
+    # Check for emoji reactions.
+    for reaction in target_comment.get_reactions():
+        if reaction.user.login == github_user_id:
+            return True
+
+    # Check for comment responses.
+    for response in potential_responses:
+        if (
+            response.created_at > target_comment.created_at
+            and response.user.login == github_user_id
+        ):
+            if is_inline:
+                return True
+
+            # For issue comments, check for @ mentions or quotes.
+            if has_mention_or_quote(response, target_comment):
+                return True
+
+    return False
+
+
+def should_skip_comment(comment, github_user_id: str):
+    return comment.user.login == github_user_id or github_user_id not in comment.body
+
+
+def has_mention_or_quote(response, original_comment):
+    if "@" + original_comment.user.login in response.body:
+        return True
+
+    # Check for quote.
+    for line in response.body.splitlines():
+        if line.strip().startswith(">") and original_comment.body[:30] in line:
+            return True
+
+    return False
+
+
+def get_email_by_slack_user_id(user_id: str):
+    return (
+        slack.users_info(user=user_id)
+        .get("user", {})
+        .get("profile", {})
+        .get("email", "")
+    )
+
+
+def get_github_user_id_by_email(email: str):
+    return g.search_users(query=email)[0].login
+
+
+
+
+================================================
+FILE: data_pipeline/README.md
+================================================
+title: ETL Pipeline From S3 to SQLite
+description: Processes GPX files from S3 and inserts them into a SQLite database, creating a data pipeline from cloud to structured data
+integrations: ["aws", "http", "sqlite3"]
+categories: ["DevOps"]
+tags: ["data_pipeline", "webhook_handling", "activity", "data_processing", "essential"]
+
+
+
+
+================================================
+FILE: data_pipeline/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that parses GPX files when uploaded to
+# an S3 bucket, and inserts the data into a SQLite database.
+
+version: v1
+
+project:
+  name: pipeline
+
+  vars:
+    - name: CREATE_DB
+      value: false
+    - name: DB_DSN
+      secret: true
+      value:
+
+  connections:
+    - name: aws_conn
+      integration: aws
+
+  triggers:
+    - name: new_s3_object
+      type: webhook
+      event_type: post
+      call: pipeline.py:on_new_s3_object
+
+
+
+
+================================================
+FILE: data_pipeline/bucket_event.json
+================================================
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-west-2",
+      "eventTime": "1970-01-01T00:00:00.000Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AIDAJDPLRKLG7UEXAMPLE"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "127.0.0.1"
+      },
+      "responseElements": {
+        "x-amz-request-id": "C3D13FE58DE4C810",
+        "x-amz-id-2": "FMyUVURIY8/IgAtTv8xRjskZQpcIZ9KG4V5Wp6S7S/JRWeUWerMUE5JgHvANOjpD"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "testConfigRule",
+        "bucket": {
+          "name": "mybucket",
+          "ownerIdentity": {
+            "principalId": "A3NL1KOZZKExample"
+          },
+          "arn": "arn:aws:s3:::mybucket"
+        },
+        "object": {
+          "key": "HappyFace.jpg",
+          "size": 1024,
+          "eTag": "d41d8cd98f00b204e9800998ecf8427e",
+          "versionId": "096fKKXTRTtl3on89fVO.nfljtsv6qko",
+          "sequencer": "0055AED6DCD90281E5"
+        }
+      }
+    }
+  ]
+}
+
+
+
+
+================================================
+FILE: data_pipeline/example-sns-event.json
+================================================
+{
+  "Type": "Notification",
+  "MessageId": "7db2e638-a87f-5e63-8faa-b8cc6d8b294d",
+  "TopicArn": "arn:aws:sns:eu-north-1:975050051518:hikes",
+  "Subject": "Amazon S3 Notification",
+  "Message": "{\"Records\":[{\"eventVersion\":\"2.1\",\"eventSource\":\"aws:s3\",\"awsRegion\":\"eu-north-1\",\"eventTime\":\"2024-06-25T13:18:43.193Z\",\"eventName\":\"ObjectCreated:Put\",\"userIdentity\":{\"principalId\":\"AWS:AROA6GBMDB67DH6QBEE75:miki\"},\"requestParameters\":{\"sourceIPAddress\":\"62.0.134.40\"},\"responseElements\":{\"x-amz-request-id\":\"396RJHM7A05CBDFX\",\"x-amz-id-2\":\"le/wihJ5KVdyKCdYy91HNlBerbBaTtOIEnUFvnWBIUyFRmy75S4IB3IX9dIHZ033RE+mOOMWzN4OwcVBvbZw3jpVYiT6uDiYvTUaXewfDwk=\"},\"s3\":{\"s3SchemaVersion\":\"1.0\",\"configurationId\":\"new\",\"bucket\":{\"name\":\"ak-miki-hikes\",\"ownerIdentity\":{\"principalId\":\"A3RBVIBHMVQI0T\"},\"arn\":\"arn:aws:s3:::ak-miki-hikes\"},\"object\":{\"key\":\"simple.tar.gz\",\"size\":758,\"eTag\":\"d6805ceca3d89e3f784a5c6ec9a5a483\",\"sequencer\":\"00667AC3B32730E451\"}}}]}",
+  "Timestamp": "2024-06-25T13:18:44.098Z",
+  "SignatureVersion": "1",
+  "Signature": "WJUHeHE5DIvKDRkSIe0mjHBCbt4WdAdR68s72w5GOUI4/G5Me1r1ZI1KWYLYPbMECucH6PKFW2XfgSERlOtpUdZkFkf0gdy3TqVB+Jmrm1x4MjLTrEHGQ27GFApj3MRTLiFOBJFUNo1KE9hNpJuZKcX3g0VjD7+xFc3uYqJT4KHTBY+2rpt3BnKBfIZEswhajFBWZ9Ro1izfXBYl2NYPBvGMC1xd2l6IQqMDfjev0pkIUcq9lAFXbwpCWW+SV5kW4Tut0Pso8EHzu2lGzmbBSlpQXC8ZCHBz07PtuVL5Cy0Uc5KvEd2XepVmu4OtzZwRNye9C1mQKh2WRQLuDEB/5A==",
+  "SigningCertURL": "https://sns.eu-north-1.amazonaws.com/SimpleNotificationService-60eadc530605d63b8e62a523676ef735.pem",
+  "UnsubscribeURL": "https://sns.eu-north-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-north-1:975050051518:hikes:18b9ba01-43f1-4a6f-a5a1-95c76a68f760"
+}
+
+
+
+
+================================================
+FILE: data_pipeline/Makefile
+================================================
+# Automation of some common operations for local development
+
+all:
+	$(error please pick a target)
+
+init-db:
+	sqlite3 hikes.db < schema.sql
+
+deploy:
+	ak deploy --manifest ./autokitteh.yaml --file pipeline.py
+
+logs:
+	ak session log --prints-only
+
+
+
+
+================================================
+FILE: data_pipeline/pipeline.py
+================================================
+"""Parse GPX files when uploaded to an S3 bucket, and insert into a SQLite database."""
+
+from contextlib import closing
+from io import BytesIO
+import json
+import os
+from pathlib import Path
+import sqlite3
+import xml.etree.ElementTree as Xml
+
+import autokitteh
+from autokitteh.aws import boto3_client
+
+
+DB_DSN = os.getenv("DB_DSN", "")  # Secret
+CREATE_DB = os.getenv("CREATE_DB", "no").lower() in {"y", "yes", "true"}
+
+INSERT_SQL = """
+INSERT INTO points
+	(track_id, n, lat, lng, height)
+VALUES
+	(:track_id, :n, :lat, :lng, :height)
+;
+"""
+
+
+def on_new_s3_object(event):
+    if not event.data.body.json:
+        print("Unexpected (non-JSON) content type:", event)
+        return
+
+    if CREATE_DB:
+        create_db(DB_DSN)
+
+    event = event.data.body.json
+    print("event:", event)
+    if url := event.get("SubscribeURL"):
+        print("SNS Subscribe URL:", url)
+        return
+
+    # SNS events encode the `Message` field in JSON
+    s3_event = json.loads(event.get("Message", {}))
+    for record in s3_event.get("Records", []):
+        bucket = record["s3"]["bucket"]["name"]
+        key = record["s3"]["object"]["key"]
+        print(f"getting {bucket}/{key}")
+        data = get_s3_object(bucket, key)
+        records = parse_gpx(key, data)
+        count = insert_records(DB_DSN, records)
+        print(f"inserted {count} records")
+
+
+@autokitteh.activity
+def get_s3_object(bucket, key):
+    response = boto3_client("aws_conn", "s3").get_object(Bucket=bucket, Key=key)
+    return response["Body"].read()
+
+
+@autokitteh.activity
+def insert_records(db_dsn, records):
+    with closing(sqlite3.connect(db_dsn)) as conn:
+        cur = conn.executemany(INSERT_SQL, records)
+        conn.commit()
+    return cur.rowcount
+
+
+@autokitteh.activity
+def create_db(db_dsn):
+    code_dir = Path(__file__).absolute().parent
+    schema_file = code_dir / "schema.sql"
+    schema_sql = schema_file.read_text()
+
+    with closing(sqlite3.connect(db_dsn)) as conn, conn:
+        conn.executescript(schema_sql)
+
+
+trkpt_tag = "{http://www.topografix.com/GPX/1/1}trkpt"
+
+
+@autokitteh.activity
+def parse_gpx(track_id, data):
+    io = BytesIO(data)
+    root = Xml.parse(io).getroot()
+    records = []
+
+    for i, elem in enumerate(root.findall(".//" + trkpt_tag)):
+        records.append(
+            {
+                "track_id": track_id,
+                "n": i,
+                "lat": float(elem.get("lat", "0")),
+                "lng": float(elem.get("lon", "0")),
+                "height": float(elem.findtext(".//") or "0"),
+            }
+        )
+
+    return records
+
+
+
+
+================================================
+FILE: data_pipeline/schema.sql
+================================================
+-- Schema for the points table
+
+CREATE TABLE IF NOT EXISTS points (
+	track_id VARCHAR(255) NOT NULL,
+	n INTEGER NOT NULL,
+	lat REAL NOT NULL,
+	lng REAL NOT NULL,
+	height REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS points_track_id_idx ON points(track_id);
+
+
+
+
+
+================================================
+FILE: data_pipeline/subscription-event.json
+================================================
+{
+  "Type": "SubscriptionConfirmation",
+  "MessageId": "XXXXXXXX-1ee3-4de3-9c69-XXXXXXXXXXXX",
+  "Token": "SECRET_TOKEN",
+  "TopicArn": "arn:aws:sns:us-west-2:XXXXXXXXXXXX:ses-test",
+  "Message": "You have chosen to subscribe to the topic arn:aws:sns:us-west-2:XXXXXXXXXXXX:ses-test. To confirm the subscription, visit the SubscribeURL included in this message.",
+  "SubscribeURL": "https://sns.us-west-2.amazonaws.com/?Action=ConfirmSubscription&TopicArn=arn:aws:sns:us-west-2:XXXXXXXXXXXX:ses-test&Token=SECRET_TOKEN",
+  "Timestamp": "2018-11-21T19:48:08.170Z",
+  "SignatureVersion": "1",
+  "Signature": "SECRET",
+  "SigningCertURL": "https://sns.us-west-2.amazonaws.com/SimpleNotificationService-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.pem"
+}
+
+
+
+
+================================================
+FILE: devops/purrr/README.md
+================================================
+title: Pull Request Review Reminder (Purrr)
+description: Streamline code reviews and cut down turnaround time to merge pull requests
+integrations: ["github", "sheets", "slack"]
+categories: ["DevOps"]
+tags: ["event_loops", "long_running", "subscribe", "unsubscribe", "next_event", "event_filtering", "essential"]
+
+
+
+
+================================================
+FILE: devops/purrr/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of the AutoKitteh project "Pull Request Review Reminder" (Purrr).
+# Purrr integrates GitHub and Slack seamlessly, to streamline code
+# reviews and cut down the turnaround time to merge pull requests.
+
+version: v1
+
+project:
+  name: purrr
+
+  vars:
+    # Temporary (easy to debug, but not scalable) replacement for Redis/Valkey.
+    - name: DATA_SHEET_URL
+      value: TODO
+    # PR channel names in Slack: "<prefix>_<number>_<title>".
+    - name: SLACK_CHANNEL_PREFIX
+      value: _pr
+    # Visibility of PR channels in Slack: "public" (default) or "private".
+    - name: SLACK_CHANNEL_VISIBILITY
+      value: public
+    # Create this channel / replace with your own / set to "" to disable it.
+    - name: SLACK_DEBUG_CHANNEL
+      value: purrr-debug
+    # TTL for GitHub/Slack mappings = 30 days (to forget stale PRs).
+    - name: STATE_TTL
+      value: 720h
+
+  connections:
+    - name: github_conn
+      integration: github
+    - name: sheets_conn
+      integration: googlesheets
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    # - name: github_issue_comment
+    #   connection: github_conn
+    #   event_type: issue_comment
+    #   call: github_issue_comment.py:on_github_issue_comment
+    - name: github_pull_request
+      connection: github_conn
+      event_type: pull_request
+      call: github_pr.py:on_github_pull_request
+    # - name: github_pull_request_review
+    #   connection: github_conn
+    #   event_type: pull_request_review
+    #   call: github_pr_review.py:on_github_pull_request_review
+    # - name: github_pull_request_review_comment
+    #   connection: github_conn
+    #   event_type: pull_request_review_comment
+    #   call: github_review_comment.py:on_github_pull_request_review_comment
+    # - name: github_pull_request_review_thread
+    #   connection: github_conn
+    #   event_type: pull_request_review_thread
+    #   call: github_thread.py:on_github_pull_request_review_thread
+
+    # - name: slack_message
+    #   connection: slack_conn
+    #   event_type: message
+    #   call: slack_message.py:on_slack_message
+    # - name: slack_reaction_added
+    #   connection: slack_conn
+    #   event_type: reaction_added
+    #   call: slack_reaction.py:on_slack_reaction_added
+    - name: slack_slash_command
+      connection: slack_conn
+      event_type: slash_command
+      call: slack_cmd.py:on_slack_slash_command
+
+
+
+
+================================================
+FILE: devops/purrr/data_helper.py
+================================================
+"""Thin wrapper over the Google Sheets API for data management and caching.
+
+Redis/Valkey would be a better choice, but are not available at this time.
+"""
+
+from datetime import datetime
+
+
+# Some read functions wait up to 5 seconds for data to exist,
+# because GitHub events are asynchronous. For example: when a
+# PR review is submitted with file/line comments, some "child"
+# comment events may arrive before the "parent" review event.
+_GET_TIMEOUT = 5
+
+# Cache user lookup results for a day, to reduce the amount
+# of API calls (especially to Slack), to avoid throttling.
+_USER_CACHE_TTL = "24h"
+
+
+def cache_github_reference(slack_user_id: str, github_ref: str) -> None:
+    """Map a Slack user ID to a GitHub user reference/name, for a day.
+
+    This helps reduce the amount of lookup API calls, to avoid throttling.
+    """
+    return  # TODO: Implement this function.
+
+
+def cached_github_reference(slack_user_id: str) -> str:
+    """Return the GitHub user reference/name mapped to a Slack user ID, or "".
+
+    This helps reduce the amount of lookup API calls, to avoid throttling.
+    """
+    return ""  # TODO: Implement this function.
+
+
+def cache_slack_user_id(github_username: str, slack_user_id: str) -> None:
+    """Map a GitHub username to a Slack user ID, for a day.
+
+    This helps reduce the amount of Slack lookup API calls, to avoid throttling.
+    """
+    return  # TODO: Implement this function.
+
+
+def cached_slack_user_id(github_username: str) -> str:
+    """Return the Slack user ID mapped to a GitHub user, or "" if not cached yet.
+
+    This helps reduce the amount of Slack lookup API calls, to avoid throttling.
+    """
+    return ""  # TODO: Implement this function.
+
+
+def lookup_github_link_details(github_link: str) -> str | None:
+    """Return the Slack message thread timestamp mapped to a GitHub PR link, or None.
+
+    This function waits up to a few seconds for the mapping to exist, because
+    GitHub events are asynchronous. For example: when a PR review is submitted
+    with file/line comments, some "child" comment events may arrive before the
+    "parent" review event.
+    """
+    if not github_link:
+        return None
+
+    return None  # TODO: Implement this function (with "wait=True").
+
+
+def slack_opt_in(user_id: str) -> None:
+    """Delete the opt-out timestamp for a Slack user."""
+    return  # TODO: Implement this function.
+
+
+def slack_opt_out(user_id: str) -> None:
+    """Return the opt-out timestamp for a Slack user, or None if they're opted-in."""
+    return  # TODO: Implement this function.
+
+
+def slack_opted_out(user_id: str) -> datetime | None:
+    """Return the opt-out timestamp for a Slack user, or None if they're opted-in."""
+    return None  # TODO: Implement this function.
+
+
+
+
+================================================
+FILE: devops/purrr/debug.py
+================================================
+"""Simple utility functions for debugging and reporting errors in Slack.
+
+Decoupled from the "slack_helper" module, to avoid circular imports.
+"""
+
+import os
+import re
+import traceback
+
+from autokitteh.slack import slack_client
+from slack_sdk.errors import SlackApiError
+
+
+_DEBUG_CHANNEL = os.getenv("SLACK_DEBUG_CHANNEL")
+
+slack = slack_client("slack_conn")
+
+
+def log(msg: str) -> None:
+    """Post a debug message to a predefined Slack channel, if defined.
+
+    Also post a filtered traceback, as replies to that message.
+    """
+    if not _DEBUG_CHANNEL or not msg:
+        return
+
+    print("DEBUG:", msg)
+    try:
+        resp = slack.chat_postMessage(channel=_DEBUG_CHANNEL, text=msg)
+        ts = resp["ts"]
+
+        for msg in _stack_messages():
+            slack.chat_postMessage(channel=_DEBUG_CHANNEL, thread_ts=ts, text=msg)
+
+    except SlackApiError as e:
+        print(f"DEBUG ERROR: {e}")
+
+
+def _stack_messages() -> list[str]:
+    msgs = []
+    for file, line, func, text in traceback.extract_stack():
+        # Log only frame summaries relating to this project, up to this function.
+        if "/ak-user-" not in file:
+            continue
+
+        # Display shorter and cleaner paths.
+        file = re.sub(r"^.+/ak-user-.+?/", "", file)
+        msgs.append(f"```File: {file}, line {line}\nFunc: {func}\n{text}```")
+
+    return msgs[:-2]  # Skip the last 2 frames (i.e. this module).
+
+
+
+
+================================================
+FILE: devops/purrr/github_helper.py
+================================================
+"""Thin layer of logic on top of the GitHub API."""
+
+import os
+
+from autokitteh.github import github_client
+
+
+ORG_NAME = os.getenv("github_conn__target_name", "")
+
+shared_client = github_client("github_conn")
+
+
+
+
+================================================
+FILE: devops/purrr/github_pr.py
+================================================
+"""Handler for GitHub "pull_request" events."""
+
+import autokitteh
+from autokitteh.slack import normalize_channel_name
+
+import data_helper
+import slack_channel
+import slack_helper
+import text_utils
+import users
+
+
+def on_github_pull_request(event) -> None:
+    """Entry-point for AutoKitteh sessions triggered by GitHub "pull_request" events.
+
+    Args:
+        event: GitHub event data.
+    """
+    _parse_github_pr_event(event.data)
+
+
+def _parse_github_pr_event(data) -> None:
+    """Parse a GitHub "pull_request" event and dispatch the appropriate handler.
+
+    About GitHub pull requests and these events:
+    - https://docs.github.com/webhooks/webhook-events-and-payloads#pull_request
+    - https://docs.github.com/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests
+
+    Args:
+        data: GitHub event data.
+    """
+    match data.action:
+        # A new pull request was created.
+        case "opened":
+            _on_pr_opened(data.action, data.pull_request, data.sender)
+        # A pull request was closed.
+        case "closed":
+            _on_pr_closed(data.action, data.pull_request, data.sender)
+        # A previously closed pull request was reopened.
+        case "reopened":
+            _on_pr_reopened(data.action, data.pull_request, data.sender)
+
+        # A pull request was converted to a draft.
+        case "converted_to_draft":
+            _on_pr_converted_to_draft(data.action, data.pull_request, data.sender)
+        # A draft pull request was marked as ready for review.
+        case "ready_for_review":
+            _on_pr_ready_for_review(data.action, data.pull_request, data.sender)
+
+        # Review by a person or team was requested for a pull request.
+        case "review_requested":
+            _on_pr_review_requested(data)
+        # A request for review by a person or team was removed from a pull request.
+        case "review_request_removed":
+            _on_pr_review_request_removed(data)
+
+        # A pull request was assigned to a user.
+        case "assigned":
+            _on_pr_assigned(data)
+        # A user was unassigned from a pull request.
+        case "unassigned":
+            _on_pr_unassigned(data)
+
+        # The title or body of a pull request was edited,
+        # or the base branch was changed.
+        case "edited":
+            _on_pr_edited(data.action, data.pull_request, data.changes, data.sender)
+        # A pull request's head branch was updated.
+        case "synchronize":
+            _on_pr_synchronized(data.action, data.pull_request, data.sender)
+
+        # TODO: locked, unlocked
+
+        # Ignored actions:
+        # - auto_merge_enabled, auto_merge_disabled
+        # - enqueued, dequeued
+        # - labeled, unlabeled
+        # - milestoned, demilestoned
+
+
+def _on_pr_opened(action: str, pr, sender) -> None:
+    """A new pull request was created (or reopened, or marked as ready for review).
+
+    See also the functions "_on_pr_reopened" and "_on_pr_ready_for_review".
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    # Ignore drafts until they're marked as ready for review.
+    if pr.draft:
+        return
+
+    channel = slack_channel.initialize_for_github_pr(action, pr, sender)
+
+    # Intercept relevant GitHub and Slack events.
+    filter = f"event_type == 'pull_request' && data.number == {pr.number}"
+    subs = [autokitteh.subscribe("github_conn", filter=filter)]
+
+    filter = "(event_type == 'message' || event_type.startswith('member_'))"
+    filter += f" && data.event.channel == {channel}"
+    subs.append(autokitteh.subscribe("slack_conn", filter=filter))
+
+    filter = f"event_type == 'reaction_added' && data.event.item.channel == {channel}"
+    subs.append(autokitteh.subscribe("slack_conn", filter=filter))
+
+    # Keep this AutoKitteh session running to handle them until the PR is closed.
+    while True:
+        data = autokitteh.next_event(subs)
+
+        # GitHub PR event.
+        if hasattr(data, "action"):
+            print("Received GitHub PR event:", data.action)
+            if data.action in ("closed", "converted_to_draft"):
+                for sub in subs:
+                    autokitteh.unsubscribe(sub)
+                break
+
+        # Slack event.
+        else:
+            print("Received Slack event:", data.event.type)
+
+
+def _on_pr_closed(action: str, pr, sender) -> None:
+    """A pull request (possibly a draft) was closed.
+
+    If "merged" is false in the webhook payload, the pull request was
+    closed with unmerged commits. If "merged" is true in the webhook
+    payload, the pull request was merged.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    # Ignore drafts - they don't have an active Slack channel anyway.
+    if pr.draft:
+        return
+
+    slack_channel.archive(action, pr, sender)
+
+
+def _on_pr_reopened(action: str, pr, sender) -> None:
+    """A previously closed pull request (possibly a draft) was reopened.
+
+    Slack bug alert from https://api.slack.com/methods/conversations.unarchive:
+    bot tokens ("xoxb-...") cannot currently be used to unarchive conversations.
+    For now, please use a user token ("xoxp-...") to unarchive the conversation
+    rather than a bot token.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    # Ignore drafts - they don't have an active Slack channel anyway.
+    if pr.draft:
+        return
+
+    # Workaround for the Slack unarchive bug: treat this as a new PR.
+    _on_pr_opened(action, pr, sender)
+
+
+def _on_pr_converted_to_draft(action: str, pr, sender) -> None:
+    """A pull request was converted to a draft.
+
+    For more information, see "Changing the stage of a pull request":
+    https://docs.github.com/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    slack_channel.archive(action, pr, sender)
+
+
+def _on_pr_ready_for_review(action: str, pr, sender) -> None:
+    """A draft pull request was marked as ready for review.
+
+    For more information, see "Changing the stage of a pull request":
+    https://docs.github.com/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/changing-the-stage-of-a-pull-request
+
+    Slack bug alert from https://api.slack.com/methods/conversations.unarchive:
+    bot tokens ("xoxb-...") cannot currently be used to unarchive conversations.
+    For now, please use a user token ("xoxp-...") to unarchive the conversation
+    rather than a bot token.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    # Workaround for the Slack unarchive bug: treat this as a new PR.
+    _on_pr_opened(action, pr, sender)
+
+
+def _on_pr_review_requested(data) -> None:
+    """Review by a person or team was requested for a pull request.
+
+    For more information, see "Requesting a pull request review":
+    https://docs.github.com/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/requesting-a-pull-request-review
+
+    Args:
+        data: GitHub event data.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(data.pull_request, data.action)
+    if not channel:
+        return
+
+    if data.requested_reviewer:
+        reviewer = data.requested_reviewer
+        _on_pr_review_requested_person(reviewer, data.sender, channel, "reviewer")
+    if data.requested_team:
+        _on_pr_review_requested_team(data.requested_team, data.sender, channel)
+
+
+def _on_pr_review_requested_person(reviewer, sender, channel: str, role: str) -> None:
+    """Review by a person was requested for a pull request.
+
+    Args:
+        reviewer: GitHub user requested as a reviewer.
+        sender: GitHub user who triggered the event.
+        channel: PR's Slack channel ID.
+        role: "reviewer" or "assignee".
+    """
+    slack_reviewer = users.format_github_user_for_slack(reviewer)
+    self_added = reviewer.login == sender.login
+    person = "themselves" if self_added else slack_reviewer
+    article = "a" if role == "reviewer" else "an"  # "assignee"
+
+    msg = f"{{}} added {person} as {article} {role}"
+    slack_helper.mention_in_message(channel, sender, msg)
+
+    if not slack_reviewer.startswith("<@"):
+        return  # Not a real Slack user ID.
+
+    # Remove the "<@" and ">" affixes from the Slack user mention to get the user ID.
+    slack_reviewer = slack_reviewer[2:-1]
+
+    if data_helper.slack_opted_out(slack_reviewer):
+        return
+
+    slack_channel.add_users(channel, [reviewer.login])
+
+    if self_added:
+        return
+
+    # DM the reviewer a reference to the Slack channel.
+    msg = f"{{}} added you as {article} {role} to a PR: <#{channel}>"
+    slack_helper.mention_in_message(slack_reviewer, sender, msg)
+
+
+def _on_pr_review_requested_team(team, sender, channel: str) -> None:
+    """Review by a team was requested for a pull request.
+
+    Args:
+        team: GitHub team requested as a reviewer.
+        sender: GitHub user who triggered the event.
+        channel: PR's Slack channel ID.
+    """
+    msg = f"{{}} added the <{team.html_url}|{team.name}> team as a reviewer"
+    slack_helper.mention_in_message(channel, sender, msg)
+
+
+def _on_pr_review_request_removed(data) -> None:
+    """A request for review by a person or team was removed from a pull request.
+
+    Args:
+        data: GitHub event data.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(data.pull_request, data.action)
+    if not channel:
+        return
+
+    if data.requested_reviewer:
+        reviewer = data.requested_reviewer
+        _on_pr_review_request_removed_person(reviewer, data.sender, channel, "reviewer")
+    if data.requested_team:
+        _on_pr_review_request_removed_team(data.requested_team, data.sender, channel)
+
+
+def _on_pr_review_request_removed_person(
+    reviewer, sender, channel: str, role: str
+) -> None:
+    """A request for review by a person was removed from a pull request.
+
+    Args:
+        reviewer: GitHub user requested as a reviewer.
+        sender: GitHub user who triggered the event.
+        channel: PR's Slack channel ID.
+        role: "reviewer" or "assignee".
+    """
+    slack_reviewer = users.format_github_user_for_slack(reviewer)
+    self_added = reviewer.login == sender.login
+    person = "themselves" if self_added else slack_reviewer
+    article = "a" if role == "reviewer" else "an"  # "assignee"
+
+    msg = f"{{}} removed {person} as {article} {role}"
+    slack_helper.mention_in_message(channel, sender, msg)
+
+    if not slack_reviewer.startswith("<@"):
+        return  # Not a real Slack user ID.
+
+    # Remove the "<@" and ">" affixes from the Slack user mention to get the user ID.
+    slack_reviewer = slack_reviewer[2:-1]
+
+    if data_helper.slack_opted_out(slack_reviewer):
+        return
+
+    # TODO: Remove the reviewer from the Slack channel.
+
+    # TODO: Remove the review request DM.
+
+
+def _on_pr_review_request_removed_team(team, sender, channel: str) -> None:
+    """A request for review by a team was removed from a pull request.
+
+    Args:
+        team: GitHub team that was requested as a reviewer.
+        sender: GitHub user who triggered the event.
+        channel: PR's Slack channel ID.
+    """
+    msg = f"removed the <{team.html_url}|{team.name}> team as a reviewer"
+    slack_helper.mention_in_message(channel, sender, "{} " + msg)
+
+
+def _on_pr_assigned(data) -> None:
+    """A pull request was assigned to a user.
+
+    Args:
+        data: GitHub event data.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(data.pull_request, data.action)
+    if not channel:
+        return
+
+    _on_pr_review_requested_person(data.assignee, data.sender, channel, "assignee")
+
+
+def _on_pr_unassigned(data) -> None:
+    """A user was unassigned from a pull request.
+
+    Args:
+        data: GitHub event data.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(data.pull_request, data.action)
+    if not channel:
+        return
+
+    assignee, sender = data.assignee, data.sender
+    _on_pr_review_request_removed_person(assignee, sender, channel, "assignee")
+
+
+def _on_pr_edited(action: str, pr, changes, sender) -> None:
+    """The title or body of a pull request was edited, or the base branch was changed.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        changes: Changed title/body in the PR.
+        sender: GitHub user who triggered the event.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(pr, action)
+    if not channel:
+        return
+
+    # PR base branch was changed.
+    if "base" in changes:
+        msg = "{} changed the base branch from "
+        msg += "`{changes.base.ref}` to `{pr.base.ref}`"
+        slack_helper.mention_in_message(channel, sender, msg)
+
+    # PR description was changed.
+    if "body" in changes:
+        if pr.body:
+            msg = "{} updated the PR description:\n\n"
+            msg += text_utils.github_to_slack(pr.body, pr.html_url)
+        else:
+            msg = "{} deleted the PR description"
+
+        slack_helper.mention_in_message(channel, sender, msg)
+
+    # PR title was changed.
+    if "title" in changes:
+        msg = f"{{}} edited the PR title to: `{pr.title}`"
+        slack_helper.mention_in_message(channel, sender, msg)
+
+        name = f"{pr.number}_{normalize_channel_name(pr.title)}"
+        slack_helper.rename_channel(channel, name)
+
+
+def _on_pr_synchronized(action: str, pr, sender) -> None:
+    """A pull request's head branch was updated.
+
+    For example, the head branch was updated from the base
+    branch or new commits were pushed to the head branch.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    # Don't do anything if there isn't an active Slack channel anyway.
+    channel = _lookup_channel(pr, action)
+    if not channel:
+        return
+
+    msg = "{} updated the head branch (see the [PR commits]({pr.url}/commits))"
+    slack_helper.mention_in_message(channel, sender, msg)
+
+
+def _lookup_channel(pr, action: str) -> str | None:
+    """Return the ID of a Slack channel that represents a GitHub PR.
+
+    Return None the PR is inactive or the channel ID is not found.
+    """
+    if pr.draft or pr.state != "open":
+        return None
+
+    return slack_helper.lookup_channel(pr.html_url, action)
+
+
+
+
+================================================
+FILE: devops/purrr/github_pr_test.py
+================================================
+"""Unit tests for the "github_pr" module."""
+
+import collections
+
+from autokitteh import github, slack
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def setup_mock_github_and_slack_clients(mocker):
+    mocker.patch.object(github, "github_client", autospec=True)
+    mocker.patch.object(slack, "slack_client", autospec=True)
+
+
+@pytest.fixture
+def mock_slack_user_id(mocker):
+    import users
+
+    return mocker.patch.object(users, "github_username_to_slack_user_id", autospec=True)
+
+
+FakeGithubUser = collections.namedtuple("FakeGithubUser", ["login"])
+
+
+class TestOnPRReviewRequestedPerson:
+    """Unit tests for the "_on_pr_review_requested_person" function."""
+
+    def test_reviewer(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = [
+            "reviewer",  # _on_pr_review_requested_person: message to channel
+            "sender",  # mention_in_reply: mention in message to channel
+            "reviewer",  # add_users: invite reviewer to channel
+            "sender",  # mention_in_reply: mention in DM to reviewer
+        ]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_requested_person(
+            FakeGithubUser("reviewer"), FakeGithubUser("sender"), "C987", "reviewer"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_any_call(
+            channel="C987",
+            text="<@sender> added <@reviewer> as a reviewer",
+            thread_ts=None,
+        )
+        slack_helper.shared_client.chat_postMessage.assert_called_with(
+            channel="reviewer",
+            text="<@sender> added you as a reviewer to a PR: <#C987>",
+            thread_ts=None,
+        )
+
+    def test_self_reviewer(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = ["U123", "U123", "U123"]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_requested_person(
+            FakeGithubUser("sender"), FakeGithubUser("sender"), "C987", "reviewer"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_called_with(
+            channel="C987",
+            text="<@U123> added themselves as a reviewer",
+            thread_ts=None,
+        )
+
+    def test_assignee(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = [
+            "assignee",  # _on_pr_review_requested_person: message to channel
+            "sender",  # mention_in_reply: mention in message to channel
+            "assignee",  # add_users: invite reviewer to channel
+            "sender",  # mention_in_reply: mention in DM to reviewer
+        ]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_requested_person(
+            FakeGithubUser("assignee"), FakeGithubUser("sender"), "C987", "assignee"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_any_call(
+            channel="C987",
+            text="<@sender> added <@assignee> as an assignee",
+            thread_ts=None,
+        )
+        slack_helper.shared_client.chat_postMessage.assert_called_with(
+            channel="assignee",
+            text="<@sender> added you as an assignee to a PR: <#C987>",
+            thread_ts=None,
+        )
+
+    def test_self_assignee(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = ["U123", "U123", "U123"]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_requested_person(
+            FakeGithubUser("sender"), FakeGithubUser("sender"), "C987", "assignee"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_called_once_with(
+            channel="C987",
+            text="<@U123> added themselves as an assignee",
+            thread_ts=None,
+        )
+
+
+class TestOnPRReviewRequestRemovedPerson:
+    """Unit tests for the "_on_pr_review_request_removed_person" function."""
+
+    def test_reviewer(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = [
+            "reviewer",  # _on_pr_review_requested_person: message to channel
+            "sender",  # mention_in_reply: mention in message to channel
+        ]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_request_removed_person(
+            FakeGithubUser("reviewer"), FakeGithubUser("sender"), "C987", "reviewer"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_any_call(
+            channel="C987",
+            text="<@sender> removed <@reviewer> as a reviewer",
+            thread_ts=None,
+        )
+
+    def test_self_reviewer(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = ["U123", "U123"]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_request_removed_person(
+            FakeGithubUser("sender"), FakeGithubUser("sender"), "C987", "reviewer"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_called_with(
+            channel="C987",
+            text="<@U123> removed themselves as a reviewer",
+            thread_ts=None,
+        )
+
+    def test_assignee(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = [
+            "assignee",  # _on_pr_review_requested_person: message to channel
+            "sender",  # mention_in_reply: mention in message to channel
+        ]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_request_removed_person(
+            FakeGithubUser("assignee"), FakeGithubUser("sender"), "C987", "assignee"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_any_call(
+            channel="C987",
+            text="<@sender> removed <@assignee> as an assignee",
+            thread_ts=None,
+        )
+
+    def test_self_assignee(self, mock_slack_user_id):
+        import github_pr
+        import slack_helper
+
+        mock_slack_user_id.side_effect = ["U123", "U123"]
+        slack_helper.shared_client.chat_postMessage.reset_mock()
+
+        github_pr._on_pr_review_request_removed_person(
+            FakeGithubUser("sender"), FakeGithubUser("sender"), "C987", "assignee"
+        )
+
+        slack_helper.shared_client.chat_postMessage.assert_called_once_with(
+            channel="C987",
+            text="<@U123> removed themselves as an assignee",
+            thread_ts=None,
+        )
+
+
+
+
+================================================
+FILE: devops/purrr/markdown_test.py
+================================================
+"""Unit tests for the "markdown" module."""
+
+import collections
+
+from autokitteh import github, slack
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def setup_mock_github_and_slack_clients(mocker):
+    mocker.patch.object(github, "github_client", autospec=True)
+    mocker.patch.object(slack, "slack_client", autospec=True)
+
+
+class TestGithubToSlack:
+    """Unit tests for the "github_to_slack" function."""
+
+    def test_trivial(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("", "") == ""
+
+    def test_basic_headers(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("# H1", "") == "*H1*"
+        assert text_utils.github_to_slack("## H2", "") == "*H2*"
+        assert text_utils.github_to_slack("### H3", "") == "*H3*"
+
+    def test_multiple_headers(self):
+        import text_utils
+
+        a = text_utils.github_to_slack("# Title 1\n\nFoo\n\n## Subtitle 2\nBar", "")
+        assert a == "*Title 1*\n\nFoo\n\n*Subtitle 2*\nBar"
+
+    def test_basic_text_style(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("_italic_", "") == "_italic_"
+        assert text_utils.github_to_slack("*italic*", "") == "_italic_"
+        assert text_utils.github_to_slack("__bold__", "") == "*bold*"
+        assert text_utils.github_to_slack("**bold**", "") == "*bold*"
+        assert text_utils.github_to_slack("~~strikethrough~~", "") == "~strikethrough~"
+
+    def test_advanced_text_style(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("***both***", "") == "_*both*_"
+        actual = text_utils.github_to_slack("**this _is_ nested**", "")
+        assert actual == "*this _is_ nested*"
+        actual = text_utils.github_to_slack("**this *is* nested**", "")
+        assert actual == "*this _is_ nested*"
+        actual = text_utils.github_to_slack("__this _is_ nested__", "")
+        assert actual == "*this _is_ nested*"
+        actual = text_utils.github_to_slack("_this **is** nested_", "")
+        assert actual == "_this *is* nested_"
+        # TODO:
+        # actual = text_utils.github_to_slack("*this **is** nested*", "")
+        # assert actual == "_this *is* nested_"
+
+    def test_quote_blocks(self):
+        import text_utils
+
+        actual = text_utils.github_to_slack("111\n>222\n> 333\n444", "")
+        assert actual == "111\n>222\n> 333\n444"
+
+    def test_code_blocks(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("`inline`", "") == "`inline`"
+        actual = text_utils.github_to_slack("```\nmulti\nline\n```", "")
+        assert actual == "```\nmulti\nline\n```"
+
+    def test_links(self):
+        import text_utils
+
+        assert text_utils.github_to_slack("[text](url)", "") == "<url|text>"
+        actual = text_utils.github_to_slack("!<url maybe with text>", "")
+        assert actual == "Image: <url maybe with text>"
+
+    def test_simple_lists(self):
+        import text_utils
+
+        expected = "  •  111\n  •  222\n  •  333"
+        assert text_utils.github_to_slack("- 111\n- 222\n- 333", "") == expected
+        assert text_utils.github_to_slack("+ 111\n+ 222\n+ 333", "") == expected
+        # TODO: assert ...github_to_slack("* 111\n* 222\n* 333", "") == expected
+
+    def test_nested_lists(self):
+        import text_utils
+
+        exp = "  •  111\n          ◦   222\n          ◦   333\n  •  444"
+        assert text_utils.github_to_slack("- 111\n  - 222\n  - 333\n- 444", "") == exp
+        assert text_utils.github_to_slack("+ 111\n  + 222\n  + 333\n+ 444", "") == exp
+        # TODO: assert ...github_to_slack("* 111\n  * 222\n  * 333\n* 444", "") == exp
+
+    def test_user_mentions(self, mocker):
+        import text_utils
+        import users
+
+        pr = "https://github.com/org/repo/pull/123"
+        id = mocker.patch.object(
+            users, "github_username_to_slack_user_id", autospec=True
+        )
+        id.side_effect = ["U123", None, None]
+
+        # Slack user found.
+        assert text_utils.github_to_slack("@user", pr) == "<@U123>"
+        # Slack user not found.
+        actual = text_utils.github_to_slack("@user", pr)
+        assert actual == "<https://github.com/user|@user>"
+        # Team not found.
+        actual = text_utils.github_to_slack("@org/team", pr)
+        assert actual == "<https://github.com/org/teams/team|@org/team>"
+
+    def test_pr_references(self):
+        import text_utils
+
+        pr = "https://github.com/org/repo/pull/987"
+        actual = text_utils.github_to_slack("#123", pr)
+        assert actual == "<https://github.com/org/repo/pull/123|#123>"
+
+    def test_html_comments(self):
+        import text_utils
+
+        actual = text_utils.github_to_slack("Blah\n<!-- hidden -->\nBlah blah", "")
+        assert actual == "Blah\n\nBlah blah"
+
+
+class TestSlackToGithub:
+    """Unit tests for the "slack_to_github" function."""
+
+    def test_trivial(self):
+        import text_utils
+
+        assert text_utils.slack_to_github("") == ""
+
+    def test_text_style(self):
+        import text_utils
+
+        assert text_utils.slack_to_github("_italic_") == "_italic_"
+        assert text_utils.slack_to_github("*bold*") == "**bold**"
+        assert text_utils.slack_to_github("_*both*_") == "***both***"
+        assert text_utils.slack_to_github("~strikethrough~") == "~~strikethrough~~"
+
+        # Not needed, but good to have just in case someone
+        # sends a non-Slack-markdown message programmatically:
+        assert text_utils.slack_to_github("__italic__") == "_italic_"
+        assert text_utils.slack_to_github("**bold**") == "**bold**"
+        assert text_utils.slack_to_github("*_both_*") == "***both***"
+        assert text_utils.slack_to_github("***both***") == "***both***"
+        assert text_utils.slack_to_github("~~strikethrough~~") == "~~strikethrough~~"
+
+    def test_quote_blocks(self):
+        import text_utils
+
+        actual = text_utils.slack_to_github("111\n&gt;222\n&gt; 333\n444")
+        assert actual == "111\n>222\n> 333\n444"
+        actual = text_utils.slack_to_github("111\n>222\n> 333\n444")
+        assert actual == "111\n>222\n> 333\n444"
+
+    def test_code_blocks(self):
+        import text_utils
+
+        assert text_utils.slack_to_github("`inline`") == "`inline`"
+        assert text_utils.slack_to_github("```mult\nline```") == "```\nmult\nline\n```"
+
+    def test_lists(self):
+        import text_utils
+
+        assert text_utils.slack_to_github("• X\n• Y\n• Z") == "- X\n- Y\n- Z"
+        actual = text_utils.slack_to_github(
+            "• X\n    ◦ Y\n        ▪︎ Z\n            • A\n                ◦ B"
+        )
+        assert actual == "- X\n  - Y\n    - Z\n      - A\n        - B"
+
+    def test_links(self):
+        import text_utils
+
+        assert text_utils.slack_to_github("<url|text>") == "[text](url)"
+        assert text_utils.slack_to_github("<url|>"), "[](url)"
+        assert text_utils.slack_to_github("<url>"), "<url>"
+
+    def test_channel(self, mocker):
+        import text_utils
+
+        channel = mocker.patch.object(text_utils, "_slack_channel_name", autospec=True)
+        channel.return_value = "CHANNEL_NAME"
+        team = mocker.patch.object(text_utils, "_slack_team_id", autospec=True)
+        team.return_value = "TEAM_ID"
+
+        expected = "[#CHANNEL_NAME](slack://channel?team=TEAM_ID&id=C123)"
+        assert text_utils.slack_to_github("<#C123>") == expected
+        assert text_utils.slack_to_github("<#C123|>") == expected
+
+        actual = text_utils.slack_to_github("<#C123|custom-name>")
+        assert actual == "[#custom-name](slack://channel?team=TEAM_ID&id=C123)"
+
+
+FakeGithubUser = collections.namedtuple("FakeGithubUser", ["name", "login"])
+
+
+class TestSlackToGithubUserMentions:
+    """Unit tests for user mentions in the "slack_to_github" function."""
+
+    @pytest.fixture
+    def mock_github_user_id(self, mocker):
+        import users
+
+        return mocker.patch.object(users, "_email_to_github_user_id", autospec=True)
+
+    @pytest.fixture
+    def mock_github_users(self, mocker):
+        import users
+
+        return mocker.patch.object(users, "_github_users", autospec=True)
+
+    @pytest.fixture
+    def mock_slack_user_info(self, mocker):
+        import users
+
+        return mocker.patch.object(users, "_slack_user_info", autospec=True)
+
+    def test_slack_user_info_error(self, mock_slack_user_info):
+        import text_utils
+
+        mock_slack_user_info.return_value = {}
+        assert text_utils.slack_to_github("<@U123>") == "Someone"
+
+    def test_email_and_name_not_found_in_slack_profile(self, mock_slack_user_info):
+        import text_utils
+
+        mock_slack_user_info.return_value = {"profile": {"foo": "bar"}}
+        assert text_utils.slack_to_github("<@U123>") == "Someone"
+
+    def test_named_and_unnamed_slack_apps(self, mock_slack_user_info):
+        import text_utils
+
+        mock_slack_user_info.side_effect = [
+            {"is_bot": True, "profile": {"real_name": "Mr. Robot"}},
+            {"is_bot": True},
+        ]
+        assert text_utils.slack_to_github("<@U123>") == "Mr. Robot"
+        assert text_utils.slack_to_github("<@U123>") == "Some Slack app"
+
+    def test_match_by_email(self, mock_github_user_id, mock_slack_user_info):
+        import text_utils
+
+        mock_github_user_id.return_value = "username"
+        mock_slack_user_info.return_value = {"profile": {"email": "me@test.com"}}
+        assert text_utils.slack_to_github("<@U123>") == "@username"
+
+    def test_match_by_name(
+        self, mock_github_user_id, mock_github_users, mock_slack_user_info
+    ):
+        import text_utils
+
+        mock_github_user_id.return_value = ""
+        mock_github_users.return_value = [FakeGithubUser("John Doe", "username")]
+        mock_slack_user_info.return_value = {
+            "profile": {"email": "me@test.com", "real_name": "John Doe"}
+        }
+        assert text_utils.slack_to_github("<@U123>") == "@username"
+
+    def test_no_matches_by_name(
+        self, mock_github_user_id, mock_github_users, mock_slack_user_info
+    ):
+        import text_utils
+
+        mock_github_user_id.return_value = ""
+        mock_github_users.return_value = []
+        mock_slack_user_info.return_value = {
+            "profile": {"email": "me@test.com", "real_name": "John Doe"}
+        }
+        assert text_utils.slack_to_github("<@U123>") == "John Doe"
+
+    def test_too_many_matches_by_name(
+        self, mock_github_user_id, mock_github_users, mock_slack_user_info
+    ):
+        import text_utils
+
+        mock_github_user_id.return_value = ""
+        mock_github_users.return_value = [
+            FakeGithubUser("John Doe", "username1"),
+            FakeGithubUser("john doe", "username2"),
+            FakeGithubUser("JOHN DOE", "username3"),
+        ]
+        mock_slack_user_info.return_value = {
+            "profile": {"email": "me@test.com", "real_name": "John Doe"}
+        }
+        assert text_utils.slack_to_github("<@U123>") == "John Doe"
+
+
+
+
+================================================
+FILE: devops/purrr/slack_channel.py
+================================================
+"""Create and manage Slack channels."""
+
+import json
+import time
+
+from autokitteh.slack import normalize_channel_name
+from slack_sdk.errors import SlackApiError
+
+import data_helper
+import debug
+import slack_helper
+import text_utils
+import users
+
+
+# Character limit for topics and descriptions of Slack channels.
+_MAX_METADATA_LENGTH = 250
+
+# Wait for a few seconds to handle other asynchronous events
+# (e.g. a PR closure comment) before archiving the channel.
+_PR_CLOSE_DELAY = 5
+
+
+slack = slack_helper.shared_client
+
+
+def initialize_for_github_pr(action: str, pr, sender) -> str:
+    """Initialize a Slack channel that represents a GitHub PR.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user object of the PR sender.
+
+    Returns:
+        ID of the created Slack channel.
+    """
+    print(f"Creating Slack channel for {pr.html_url} (PR event action: {action})")
+    print(json.dumps(pr, indent=4, sort_keys=True))
+
+    name = f"{pr.number}_{normalize_channel_name(pr.title)}"
+    channel_id = slack_helper.create_channel(name)
+    if not channel_id:
+        _report_creation_error(pr, sender.login)
+
+    _set_topic(pr, channel_id)
+    _set_description(pr, channel_id)
+    _set_bookmarks(pr, channel_id)
+    _post_messages(action, pr, sender, channel_id)
+
+    # TODO: Map between the GitHub PR and the Slack channel ID, for 2-way event syncs.
+
+    add_users(channel_id, users.github_pr_participants(pr))
+    return channel_id
+
+
+def _report_creation_error(pr, github_username) -> None:
+    """Report to the PR sender that a Slack channel wasn't created for it, and abort."""
+    error = "Failed to create Slack channel for " + pr.html_url
+    debug.log(error)
+
+    user_id = users.github_username_to_slack_user_id(github_username)
+    if user_id and not data_helper.slack_opted_out(user_id):
+        slack.chat_postMessage(channel=user_id, text=error)
+
+    raise RuntimeError(error)
+
+
+def _set_topic(pr, channel_id: str) -> None:
+    """Set the topic of a Slack channel to a GitHub PR URL."""
+    topic = pr.html_url
+    if len(topic) > _MAX_METADATA_LENGTH:
+        topic = topic[: _MAX_METADATA_LENGTH - 4] + " ..."
+    try:
+        slack.conversations_setTopic(channel=channel_id, topic=topic)
+    except SlackApiError as e:
+        error = f"Failed to set the topic of <#{channel_id}> to `{topic}`"
+        debug.log(f"{error}: `{e.response['error']}`")
+
+
+def _set_description(pr, channel_id: str) -> None:
+    """Set the description of a Slack channel to a GitHub PR title."""
+    title = f"`{pr.title}`"
+    if len(title) > _MAX_METADATA_LENGTH:
+        title = title[: _MAX_METADATA_LENGTH - 4] + "`..."
+    try:
+        slack.conversations_setPurpose(channel=channel_id, purpose=title)
+    except SlackApiError as e:
+        error = f"Failed to set the purpose of <#{channel_id}> to `{title}`"
+        debug.log(f"{error}: `{e.response['error']}`")
+
+
+def _set_bookmarks(pr, channel_id: str) -> None:
+    """Set the bookmarks of a Slack channel to important GitHub PR links.
+
+    Bookmark titles are also updated later based on relevant GitHub events.
+    """
+    pass  # TODO: Implement this function.
+
+
+def _post_messages(action: str, pr, sender, channel_id: str) -> None:
+    """Post initial messages to a Slack channel, describing a GitHub PR."""
+    if action == "ready_for_review":
+        action = "marked as ready for review"
+
+    msg = f"{{}} {action} {pr.html_url}: `{pr.title}`"
+
+    if pr.body:
+        msg += "\n\n" + text_utils.github_to_slack(pr.body, pr.html_url)
+
+    slack_helper.mention_in_message(channel_id, sender, msg)
+
+    # TODO: Also post a message summarizing check states (updated
+    # later based on "workflow_job" and "workflow_run" events).
+
+
+def add_users(channel_id: str, github_users: list[str]) -> None:
+    """Invite all the participants in a GitHub PR to a Slack channel."""
+    slack_users = [users.github_username_to_slack_user_id(u) for u in github_users]
+    slack_users = [user for user in slack_users if user]  # Ignore unrecognized users.
+
+    # Also ignore users who opted out of Purrr. They will still be mentioned
+    # in the channel, but as non-members they won't be notified about it.
+    slack_users = [u for u in slack_users if not data_helper.slack_opted_out(u)]
+    if not slack_users:
+        return
+
+    # Limit the number of users per https://api.slack.com/methods/conversations.invite
+    if len(slack_users) > 1000:
+        slack_users = slack_users[:1000]
+
+    user_ids = ",".join(slack_users)
+    try:
+        slack.conversations_invite(channel=channel_id, users=user_ids, force=True)
+    except SlackApiError as e:
+        if e.response["error"] == "already_in_channel":
+            return
+
+        error = f"Failed to add {len(slack_users)} Slack user(s) to channel "
+        error += f"<#{channel_id}>: `{e.response['error']}`"
+        for err in e.response.get("errors", []):
+            error += f"\n- <@{err.user}> - `{err.error}`"
+        debug.log(error)
+
+
+def archive(action: str, pr, sender) -> None:
+    """Archive a Slack channel that represents a GitHub PR.
+
+    This function is called when a PR is closed or converted to a draft.
+
+    Args:
+        action: GitHub PR event action.
+        pr: GitHub PR data.
+        sender: GitHub user who triggered the event.
+    """
+    channel_id = slack_helper.lookup_channel(pr.html_url, action)
+    if not channel_id:
+        # Unrecoverable error, but no need to report/debug it:
+        # if we're not tracking it, there's nothing to fix.
+        return
+
+    # Wait for a few seconds to handle other asynchronous events
+    # (e.g. a PR closure comment) before archiving the channel.
+    time.sleep(_PR_CLOSE_DELAY)
+
+    if action == "closed this PR":
+        if pr.merged:
+            action = "merged this PR"
+    else:
+        action = "converted this PR to a draft"
+
+    slack_helper.mention_in_message(channel_id, sender, f"{{}} {action}")
+
+    try:
+        slack.conversations_archive(channel=channel_id)
+    except SlackApiError as e:
+        action = action.replace(" this PR", "")
+        error = f"{pr.html_url} is `{action}`, but failed to archive <#{channel_id}>"
+        debug.log(f"{error}: `{e.response['error']}`")
+
+
+
+
+================================================
+FILE: devops/purrr/slack_cmd.py
+================================================
+"""Handler for Slack slash-command events."""
+
+import collections
+
+import data_helper
+import slack_helper
+
+
+slack = slack_helper.shared_client
+
+
+def on_slack_slash_command(event):
+    """Entry-point for AutoKitteh sessions triggered by Slack slash-command events.
+
+    - /purrr help
+    - /purrr opt-in
+    - /purrr opt-out
+    - /purrr list
+    - /purrr status [PR]
+    - /purrr approve [PR]
+
+    About slash commands: https://api.slack.com/interactivity/slash-commands
+    See also: https://api.slack.com/interactivity/handling#message_responses
+
+    Args:
+        event: Slack event data.
+    """
+    # Split the command into normalized arguments.
+    data = event.data
+    args = str(data.text).lower().split()
+
+    # Route further processing to the appropriate command handler.
+    if not args or "help" in args:
+        _help(data, args)
+        return
+
+    if args[0] in _COMMANDS:
+        _COMMANDS[args[0]].handler(data, args)
+        return
+
+    error = f"Error: unrecognized Purrr command: `{args[0]}`"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=error)
+
+
+def _error(data, cmd: str, msg: str):
+    """Send a private error message to the user about their command."""
+    error = f"Error in `{data.command} {cmd}`: {msg}"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=error)
+
+
+def _help(data, args: list[str]):
+    """Send a private message to the user to list all the available Purrr commands."""
+    if len(args) > 2:
+        # TODO: Support per-command help too, in the future.
+        _error(data, "help", "this command doesn't accept extra arguments")
+        return
+
+    # General help message: a list of all the available commands.
+    text = _help_text(data)
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=text)
+
+
+def _help_text(data) -> str:
+    text = ":wave: *GitHub Pull Request Review Reminder (Purrr)* :wave:\n\n"
+    text += "Available slash commands:"
+    for cmd in _COMMANDS.values():
+        text += f"\n  •  `{data.command} {cmd.label}` - {cmd.description}"
+    return text
+
+
+def _opt_in(data, args: list[str]):
+    """User opt-in command handler (this is the default user state)."""
+    if len(args) > 1:
+        _error(data, args[0], "this command doesn't accept extra arguments")
+        return
+
+    if not data_helper.slack_opted_out(data.user_id):
+        msg = ":bell: You're already opted into Purrr"
+        slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=msg)
+        return
+
+    data_helper.slack_opt_in(data.user_id)
+    msg = ":bell: You are now opted into Purrr"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=msg)
+
+
+def _opt_out(data, args: list[str]):
+    """User opt-out: don't use Purrr even in a Slack workspace that installed it."""
+    if len(args) > 1:
+        _error(data, args[0], "this command doesn't accept extra arguments")
+        return
+
+    opt_out_time = data_helper.slack_opted_out(data.user_id)
+    if opt_out_time:
+        msg = f":no_bell: You're already opted out of Purrr since: {opt_out_time}"
+        slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=msg)
+        return
+
+    data_helper.slack_opt_out(data.user_id)
+    msg = ":no_bell: You are now opted out of Purrr"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=msg)
+
+
+def _list(data, args: list[str]):
+    """PR list command handler."""
+    if len(args) > 1:
+        _error(data, args[0], "this command doesn't accept extra arguments")
+        return
+
+    error = "Sorry, this command is not implemented yet"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=error)
+
+
+def _status(data, args: list[str]):
+    """PR status command handler."""
+    # TODO: If the Slack channel belongs to a PR, the arg is optional.
+    if len(args) != 2:
+        msg = "when called outside of a PR channel, this command requires exactly "
+        msg += "1 argument - an ID of a GitHub PR (`<org>/<repo>/<number>`), "
+        _error(data, args[0], msg + "or the PR's full URL")
+        return
+
+    error = "Sorry, this command is not implemented yet"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=error)
+
+
+def _approve(data, args: list[str]):
+    """Approve command."""
+    # TODO: If the Slack channel belongs to a PR, the arg is optional.
+    if len(args) != 2:
+        msg = "when called outside of a PR channel, this command requires exactly "
+        msg += "1 argument - an ID of a GitHub PR (`<org>/<repo>/<number>`), "
+        _error(data, args[0], msg + "or the PR's full URL")
+        return
+
+    error = "Sorry, this command is not implemented yet"
+    slack.chat_postEphemeral(channel=data.channel_id, user=data.user_id, text=error)
+
+
+_Command = collections.namedtuple("Command", ["label", "handler", "description"])
+
+_COMMANDS = {
+    "opt-in": _Command("opt-in", _opt_in, "Opt into receiving notifications"),
+    "opt-out": _Command("opt-out", _opt_out, "Opt out of receiving notifications"),
+    "list": _Command("list", _list, "List all PRs you should pay attention to"),
+    "status": _Command("status [PR]", _status, "Check the status of a specific PR"),
+    "approve": _Command("approve [PR]", _approve, "Approve a specific PR"),
+}
+
+
+
+
+================================================
+FILE: devops/purrr/slack_cmd_test.py
+================================================
+"""Unit tests for the "slack_cmd" module."""
+
+from datetime import datetime, UTC
+
+import autokitteh
+from autokitteh import github, slack
+import pytest
+
+
+MIN_UTC = datetime.min.replace(tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def setup_mock_github_and_slack_clients(mocker):
+    mocker.patch.object(github, "github_client", autospec=True)
+    mocker.patch.object(slack, "slack_client", autospec=True)
+
+
+@pytest.fixture
+def mock_data_helper(mocker):
+    import slack_cmd
+
+    return mocker.patch.object(slack_cmd, "data_helper", autospec=True)
+
+
+fake_data = {
+    "channel_id": "purr-debug",
+    "user_id": "user",
+    "command": "/purrr",
+}
+
+
+def test_help_text():
+    import slack_cmd
+
+    data = autokitteh.AttrDict(fake_data)
+    text = slack_cmd._help_text(data)
+
+    for cmd in slack_cmd._COMMANDS.values():
+        assert cmd.label in text
+        assert cmd.description in text
+
+
+def test_on_slack_slash_command_without_text():
+    import slack_cmd
+
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": ""}})
+    slack_cmd.on_slack_slash_command(event)
+
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=slack_cmd._help_text(event.data),
+    )
+
+
+def test_on_slack_slash_command_with_help():
+    import slack_cmd
+
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": "help"}})
+    slack_cmd.on_slack_slash_command(event)
+
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=slack_cmd._help_text(event.data),
+    )
+
+
+def test_on_slack_slash_command_with_noop_opt_in(mock_data_helper):
+    import slack_cmd
+
+    mock_data_helper.slack_opted_out.return_value = ""
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": "opt-in"}})
+    slack_cmd.on_slack_slash_command(event)
+
+    mock_data_helper.slack_opted_out.assert_called_once_with(event.data.user_id)
+    mock_data_helper.slack_opt_in.assert_not_called()
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=":bell: You're already opted into Purrr",
+    )
+
+
+def test_on_slack_slash_command_with_actual_opt_in(mock_data_helper):
+    import slack_cmd
+
+    mock_data_helper.slack_opted_out.return_value = MIN_UTC
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": "opt-in"}})
+    slack_cmd.on_slack_slash_command(event)
+
+    mock_data_helper.slack_opted_out.assert_called_once_with(event.data.user_id)
+    mock_data_helper.slack_opt_in.assert_called_once_with(event.data.user_id)
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=":bell: You are now opted into Purrr",
+    )
+
+
+def test_on_slack_slash_command_with_noop_opt_out(mock_data_helper):
+    import slack_cmd
+
+    mock_data_helper.slack_opted_out.return_value = MIN_UTC
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": "opt-out"}})
+    slack_cmd.on_slack_slash_command(event)
+
+    mock_data_helper.slack_opted_out.assert_called_once_with(event.data.user_id)
+    mock_data_helper.slack_opt_out.assert_not_called()
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=":no_bell: You're already opted out of Purrr since: "
+        "0001-01-01 00:00:00+00:00",
+    )
+
+
+def test_on_slack_slash_command_with_second_opt_out(mock_data_helper):
+    import slack_cmd
+
+    mock_data_helper.slack_opted_out.return_value = ""
+    slack_cmd.slack.chat_postEphemeral.reset_mock()
+
+    event = autokitteh.AttrDict({"data": fake_data | {"text": "opt-out"}})
+    slack_cmd.on_slack_slash_command(event)
+
+    mock_data_helper.slack_opted_out.assert_called_once_with(event.data.user_id)
+    mock_data_helper.slack_opt_out.assert_called_once_with(event.data.user_id)
+    slack_cmd.slack.chat_postEphemeral.assert_called_once_with(
+        channel=event.data.channel_id,
+        user=event.data.user_id,
+        text=":no_bell: You are now opted out of Purrr",
+    )
+
+
+
+
+================================================
+FILE: devops/purrr/slack_helper.py
+================================================
+"""Thin layer of logic on top of the Slack API."""
+
+import os
+
+from autokitteh.slack import slack_client
+from slack_sdk.errors import SlackApiError
+
+import data_helper
+import debug
+import users
+
+
+# PR channel names in Slack: "<prefix>_<number>_<title>".
+_CHANNEL_PREFIX = os.getenv("SLACK_CHANNEL_PREFIX", "_pr")
+
+# Visibility of PR channels in Slack: "public" (default) or "private".
+_IS_PRIVATE = os.getenv("SLACK_CHANNEL_VISIBILITY", "")
+
+shared_client = slack_client("slack_conn")
+
+
+def create_channel(name: str) -> str:
+    """Create a public or private Slack channel.
+
+    If the name is already taken, add a numeric suffix to it.
+
+    Args:
+        name: Desired (and valid) name of the channel.
+
+    Returns:
+        Channel ID, or an empty string in case of an error.
+    """
+    is_private = _IS_PRIVATE.lower().strip() == "private"
+    visibility = "private" if is_private else "public"
+    suffix = 0
+
+    while True:
+        suffix += 1
+        n = _CHANNEL_PREFIX + "_" + name if suffix == 1 else f"{name}_{suffix}"
+        try:
+            resp = shared_client.conversations_create(name=n, is_private=is_private)
+            channel_id = resp["channel"]["id"]
+            print(f"Created {visibility} Slack channel {n!r} ({channel_id})")
+            return channel_id
+        except SlackApiError as e:
+            if e.response["error"] != "name_taken":
+                error = f"Failed to create {visibility} Slack channel `{n}`"
+                debug.log(f"{error}: `{e.response['error']}`")
+                return ""
+
+
+def rename_channel(channel_id: str, name: str) -> None:
+    """Safely rename a Slack channel.
+
+    If the name is already taken, add a numeric suffix to it.
+
+    Args:
+        channel_id: Slack channel ID.
+        name: Desired (and valid) name of the channel.
+    """
+    suffix = 0
+    while True:
+        suffix += 1
+        n = _CHANNEL_PREFIX + "_" + name if suffix == 1 else f"{name}_{suffix}"
+        try:
+            shared_client.conversations_rename(channel=channel_id, name=n)
+            print(f"Renamed Slack channel to {n!r} ({channel_id})")
+            return
+        except SlackApiError as e:
+            if e.response["error"] != "name_taken":
+                error = f"Failed to rename Slack channel <#{channel_id}> to `{n}`"
+                debug.log(f"{error}: `{e.response['error']}`")
+                return
+
+
+def impersonate_in_message(channel_id: str, github_user, msg: str) -> str:
+    """Post a message to a Slack channel, on behalf of a GitHub user.
+
+    Similar functions:
+    - impersonate_in_reply
+    - mention_in_message
+    - mention_in_reply
+
+    Args:
+        channel_id: ID of the channel to send the message to.
+        github_user: GitHub user object of the impersonated user.
+        msg: Message to send.
+
+    Returns:
+        Message's thread timestamp, or "" in case of an error.
+    """
+    return impersonate_in_reply(channel_id, "", github_user, msg)
+
+
+def impersonate_in_reply(
+    channel_id: str, comment_url: str, github_user, msg: str
+) -> str:
+    """Post a reply to a Slack thread, on behalf of a GitHub user.
+
+    Similar functions:
+    - impersonate_in_message
+    - mention_in_message
+    - mention_in_reply
+
+    Args:
+        channel_id: ID of the channel to send the message to.
+        comment_url: URL of the GitHub PR comment to reply to.
+        github_user: GitHub user object of the impersonated user.
+        msg: Message to send.
+
+    Returns:
+        Message's thread timestamp, or "" in case of an error.
+    """
+    # TODO: Is this check needed?
+    # if not channel_id:
+    #     return ""
+
+    user = users.github_username_to_slack_user(github_user.login)
+    if not user:
+        return ""
+
+    profile = user.get("profile", {})
+    icon = profile.get("image_48")
+    name = profile.get("real_name")
+    ts = _lookup_message(comment_url)
+
+    try:
+        resp = shared_client.chat_postMessage(
+            channel=channel_id, text=msg, thread_ts=ts, icon_url=icon, username=name
+        )
+        return resp["ts"]
+    except SlackApiError as e:
+        error = f"Failed to post {'reply' if ts else 'message'} "
+        error += f"as <@{user['id']}> in <#{channel_id}>"
+        debug.log(f"{error}: `{e.response['error']}`")
+        return ""
+
+
+def lookup_channel(pr_url: str, action: str) -> str | None:
+    """Return the ID of a Slack channel that represents a GitHub PR.
+
+    This function waits up to a few seconds for the PR's Slack message to exist,
+    because GitHub events are asynchronous. For example: when a PR is re/opened,
+    some "review_requested" events may arrive before the "opened" event.
+
+    Args:
+        pr_url: URL of the GitHub PR.
+        action: GitHub PR event action.
+
+    Returns:
+        Channel ID, or None if not found.
+    """
+    channel_id = data_helper.lookup_github_link_details(pr_url)
+    if not channel_id:
+        debug.log(f"{pr_url} is `{action}`, but its Slack channel ID not found")
+    return channel_id
+
+
+def _lookup_message(comment_url: str) -> str | None:
+    """Return the ID (timestamp) of a Slack message that represents a GitHub PR review.
+
+    This function waits up to a few seconds for the PR review's Slack message
+    to exist, because GitHub events are asynchronous. For example: when a PR
+    review is submitted with file and line comments, some "child" comment
+    events may arrive before the "parent" review event.
+
+    Args:
+        comment_url: URL of the GitHub PR comment to reply to.
+
+    Returns:
+        Message's thread timestamp, or None if not found.
+    """
+    thread_ts = data_helper.lookup_github_link_details(comment_url)
+    if not thread_ts:
+        debug.log(f"Slack message mapping for {comment_url} not found")
+    return thread_ts
+
+
+def mention_in_message(channel_id: str, github_user, msg: str) -> str:
+    """Post a message to a Slack channel, mentioning a GitHub user.
+
+    Similar functions:
+    - impersonate_user_in_message
+    - impersonate_user_in_reply
+    - mention_user_in_reply
+
+    Args:
+        channel_id: ID of the channel to send the message to.
+        github_user: GitHub user object of the mentioned user.
+        msg: Message to send, containing a single "{}" placeholder.
+
+    Returns:
+        Message's thread timestamp, or "" in case of an error.
+    """
+    return mention_in_reply(channel_id, "", github_user, msg)
+
+
+def mention_in_reply(channel_id: str, comment_url: str, github_user, msg: str) -> str:
+    """Post a reply to a Slack thread, mentioning a GitHub user.
+
+    Similar functions:
+    - impersonate_user_in_message
+    - impersonate_user_in_reply
+    - mention_user_in_message
+
+    Args:
+        channel_id: ID of the channel to send the message to.
+        comment_url: URL of the GitHub PR comment to reply to.
+        github_user: GitHub user object of the mentioned user.
+        msg: Message to send, containing a single "{}" placeholder.
+
+    Returns:
+        Message's thread timestamp, or "" in case of an error.
+    """
+    # TODO: Is this check needed?
+    # if not channel_id:
+    #     return ""
+
+    m = msg.format(users.format_github_user_for_slack(github_user))
+    ts = _lookup_message(comment_url)
+
+    try:
+        resp = shared_client.chat_postMessage(channel=channel_id, text=m, thread_ts=ts)
+        return resp["ts"]
+    except SlackApiError as e:
+        error = f"Failed to post {'reply' if ts else 'message'} in <#{channel_id}>"
+        debug.log(f"{error}: `{e.response['error']}`")
+        return ""
+
+
+
+
+================================================
+FILE: devops/purrr/text_utils.py
+================================================
+"""Markdown-related helper functions across GitHub and Slack."""
+
+import collections
+import re
+from urllib.parse import urlparse
+
+from slack_sdk.errors import SlackApiError
+
+import debug
+import slack_helper
+import users
+
+
+_GithubUser = collections.namedtuple("GithubUser", ["login", "html_url"])
+_SlackChannel = collections.namedtuple("SlackChannel", ["name", "id"])
+_SlackUser = collections.namedtuple("SlackUser", ["link", "id"])
+
+
+slack = slack_helper.shared_client
+
+
+def github_to_slack(text: str, pr_url: str) -> str:
+    """Convert GitHub markdown text to Slack markdown text.
+
+    References:
+    - https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
+    - https://api.slack.com/reference/surfaces/formatting
+
+    Args:
+        text: Text body, possibly containing GitHub markdown.
+        pr_url: URL of the PR we're working on, used to convert
+            other PR references in the text ("#123") to links.
+
+    Returns:
+        Slack markdown text.
+    """
+    # Header lines --> bold lines.
+    text = re.sub(r"^#+\s+(.+)", r"**\1**", text, flags=re.MULTILINE)
+
+    # Bold and italic text together: "*** ... ***" --> "_* ... *_".
+    text = re.sub(r"\*\*\*(.+?)\*\*\*", r"_**\1**_", text)
+
+    # Italic text: "*" --> "_" ("_" -> "_" is a no-op).
+    text = re.sub(r"(^|[^*])\*([^*]+?)\*", r"\1_\2_", text)
+
+    # Bold text: "**" or "__" --> "*".
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
+    text = re.sub(r"__(.+?)__", r"*\1*", text)
+
+    # Strikethrough text: "~~" --> "~" ("~" -> "~" is a no-op).
+    text = re.sub(r"~~(.+?)~~", r"~\1~", text)
+
+    # Links: "[text](url)" --> "<url|text>".
+    # Images: "![text](url)" --> "!<url|text>" --> "Image: <url|text>".
+    text = re.sub(r"\[(.*?)\]\((.*?)\)", r"<\2|\1>", text)
+    text = re.sub(r"!<(.*?)>", r"Image: <\1>", text)
+
+    # Lists (up to 2 levels): "-" or "*" or "+" --> "•" and "◦".
+    for bullet in ("-", r"\+"):
+        text = re.sub(rf"^{bullet}\s*", "  •  ", text, flags=re.MULTILINE)
+        text = re.sub(
+            rf"^\s{{2,4}}{bullet}\s*", r"          ◦   ", text, flags=re.MULTILINE
+        )
+
+    # Mentions: "@user" --> "<@U123>" or "<https://github.com/user|@user>",
+    # "@org/team" --> "<https://github.com/org/teams/team|@org/team>".
+    for github_user in re.findall(r"@[\w/-]+", text):
+        parsed = urlparse(pr_url)
+        url_suffix = github_user[1:]
+        if "/" in url_suffix:
+            url_suffix = url_suffix.replace("/", "/teams/")
+        profile_link = f"{parsed.scheme}://{parsed.netloc}/{url_suffix}"
+        user_obj = _GithubUser(login=github_user[1:], html_url=profile_link)
+        slack_user = users.format_github_user_for_slack(user_obj)
+        text = text.replace(github_user, slack_user)
+
+    # PR references: "#123" --> "<PR URL|#123>" (works for issues too).
+    url_base = re.sub(r"/pull/\d+$", "/pull", pr_url)
+    text = re.sub(r"#(\d+)", rf"<{url_base}/\1|#\1>", text)
+
+    # Hide HTML comments.
+    text = re.sub(r"<!--.+?-->", "", text, flags=re.DOTALL)
+
+    return text
+
+
+def slack_to_github(text: str) -> str:
+    """Convert Slack markdown text to GitHub markdown text.
+
+    References:
+    - https://api.slack.com/reference/surfaces/formatting
+    - https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
+
+    Args:
+        text: Text body, possibly containing Slack markdown.
+
+    Returns:
+        GitHub markdown text.
+    """
+    # Bold and italic text together: "_*" or "*_" --> "***".
+    text = re.sub(r"_\*(.+?)\*_", r"***\1***", text)
+    text = re.sub(r"\*_(.+?)_\*", r"***\1***", text)
+
+    # Bold text: "*" --> "**" (italic text is a no-op: "_" --> "_").
+    text = re.sub(r"(^|[^*])\*([^*]+?)\*", r"\1**\2**", text)
+
+    # Italic text: "__" --> "_".
+    text = re.sub(r"__(.+?)__", r"_\1_", text)
+
+    # Strikethrough text: "~" --> "~~" ("~~" -> "~~" is a no-op).
+    text = re.sub(r"(^|[^~])~([^~]+?)~", r"\1~~\2~~", text)
+
+    # Block quotes: "&gt; aaa" --> "> aaa".
+    text = re.sub(r"^&gt;(.*)", r">\1", text, flags=re.MULTILINE)
+
+    # Multiline code blocks: ```aaa\nbbb``` --> ```\naaa\nbbb\n```.
+    text = re.sub(r"```(.+?)```", r"```\n\1\n```", text, flags=re.DOTALL)
+
+    # Lists (up to 5 levels): "•", "◦", and "▪︎" --> "-".
+    text = re.sub(r"^•", "-", text, flags=re.MULTILINE)
+    text = re.sub(r"^    ◦", "  -", text, flags=re.MULTILINE)
+    text = re.sub(r"^        ▪︎", "    -", text, flags=re.MULTILINE)
+    text = re.sub(r"^            •", "      -", text, flags=re.MULTILINE)
+    text = re.sub(r"^                ◦", "        -", text, flags=re.MULTILINE)
+
+    # Links: "<url|text>" or "<@...>" or "<#...>" --> "[text](url)".
+    text = re.sub(r"<(.*?)\|(.*?)>", r"[\2](\1)", text)
+    text = re.sub(r"<([@#][A-Z0-9]+)>", r"[](\1)", text)
+
+    # Channel references: "<#...>" or "<#...|name>" --> "[name](#...)" -->
+    # "[#name](slack://channel?team={TEAM_ID}&id={CHANNEL_ID})"
+    # (see https://api.slack.com/reference/deep-linking).
+    for channel in re.findall(r"\[(.*?)\]\(#([A-Z0-9]+)\)", text):
+        channel = _SlackChannel(*channel)
+        old = f"[{channel.name}](#{channel.id})"
+        if not channel.name:
+            channel = _SlackChannel(_slack_channel_name(channel.id), channel.id)
+        team_id = _slack_team_id()
+        new = f"[#{channel.name}](slack://channel?team={team_id}&id={channel.id})"
+        text = text.replace(old, new)
+
+    # User mentions: "<@...>" --> "[](@...)" --> "@github-user" or "Full Name".
+    for slack_user in re.findall(r"(\[.*?\]\(@([A-Z0-9]+)\))", text):
+        slack_user = _SlackUser(*slack_user)
+        github_user = users.format_slack_user_for_github(slack_user.id)
+        text = text.replace(slack_user.link, github_user)
+
+    return text
+
+
+def _slack_channel_name(id: str) -> str:
+    """Return the name of a Slack channel based on its ID."""
+    try:
+        resp = slack.conversations_info(channel=id)
+        return resp.get("channel", {}).get("name", "")
+    except SlackApiError as e:
+        error = f"Failed to get Slack channel info for <#{id}>"
+        debug.log(f"{error}: `{e.response['error']}`")
+        return ""
+
+
+def _slack_team_id() -> str:
+    """Return the Slack app's team ID."""
+    try:
+        return slack.auth_test().get("team_id", "")
+    except SlackApiError as e:
+        debug.log(f"Slack auth test failed: `{e.response['error']}`")
+        return ""
+
+
+
+
+================================================
+FILE: devops/purrr/users.py
+================================================
+"""User-related helper functions across GitHub and Slack."""
+
+from autokitteh.slack import slack_client
+from github import GithubException
+from github import NamedUser
+from slack_sdk.errors import SlackApiError
+
+import data_helper
+import debug
+import github_helper
+
+
+gh = github_helper.shared_client
+slack = slack_client("slack_conn")
+
+
+def _email_to_github_user_id(email: str) -> str:
+    """Convert an email address to a GitHub user ID, or "" if not found."""
+    users = gh.search_users(email + " in:email")
+    if users.totalCount == 1:
+        return users[0].login
+    else:
+        error = f"GitHub user search results: {users.totalCount} users"
+        debug.log(f"{error} with the email address `{email}`")
+        return ""
+
+
+def _email_to_slack_user_id(email: str) -> str:
+    """Convert an email address to a Slack user ID, or "" if not found."""
+    try:
+        resp = slack.users_lookupByEmail(email=email)
+        return resp.get("user", {}).get("id", "")
+    except SlackApiError as e:
+        error = f"Failed to look-up Slack user by email {email}"
+        debug.log(f"{error}: `{e.response['error']}`")
+        return ""
+
+
+def format_github_user_for_slack(github_user) -> str:
+    """Convert a GitHub user or team to a linkified reference in Slack.
+
+    Args:
+        github_user: GitHub user object.
+
+    Returns:
+        Slack user reference, or GitHub profile link.
+        Used for mentioning users in Slack messages.
+    """
+    slack_user_id = github_username_to_slack_user_id(github_user.login)
+    if slack_user_id:
+        # Mention the user by their Slack ID, if possible.
+        return f"<@{slack_user_id}>"
+    else:
+        # Otherwise, fall-back to their GitHub profile link.
+        return f"<{github_user.html_url}|@{github_user.login}>"
+
+
+def format_slack_user_for_github(slack_user_id: str) -> str:
+    """Convert a Slack user ID to a GitHub user reference/name.
+
+    This function also caches both successful and failed results for
+    a day, to reduce the amount of API calls, especially to Slack.
+
+    Args:
+        slack_user_id: Slack user ID.
+
+    Returns:
+        GitHub user reference, or the Slack user's full name, or "Someone".
+        Used for mentioning users in GitHub reviews and comments.
+    """
+    if not slack_user_id:
+        debug.log("Required input not found: Slack user ID")
+        return "Someone"
+
+    # Optimization: if we already have it cached, no need to look it up.
+    github_ref = data_helper.cached_github_reference(slack_user_id)
+    if github_ref:
+        return github_ref
+
+    user = _slack_user_info(slack_user_id)
+    if not user:
+        # This is never OK, don't cache it in order to keep retrying.
+        return "Someone"
+
+    profile = user.get("profile", {})
+
+    # Special case: Slack apps/bots can't have GitHub identities.
+    if user.get("is_bot"):
+        bot_name = profile.get("real_name", "Some Slack app")
+        data_helper.cache_github_reference(slack_user_id, bot_name)
+        return bot_name
+
+    # Try to match by the email address first.
+    email = profile.get("email", "")
+    if not email:
+        debug.log(f"Email address not set for Slack user <@{slack_user_id}>")
+    else:
+        github_id = _email_to_github_user_id(email)
+        if github_id:
+            github_ref = "@" + github_id
+            data_helper.cache_github_reference(slack_user_id, github_ref)
+            return github_ref
+
+    # Otherwise, try to match by the user's full name.
+    slack_name = profile.get("real_name", "").lower()
+    if not slack_name:
+        debug.log(f"Slack user <@{slack_user_id}>: `real_name` not found in profile")
+        return "Someone"
+
+    users = []
+    for user in _github_users():
+        if user.name and user.name.lower() == slack_name:
+            users.append(user)
+
+    if len(users) == 1:
+        github_ref = "@" + users[0].login
+        data_helper.cache_github_reference(slack_user_id, github_ref)
+        return github_ref
+
+    # Optimization: cache unsuccessful results too (i.e. external collaborators).
+    error = f"Slack user <@{slack_user_id}>: found {len(users)}"
+    debug.log(f"{error} GitHub org members with the same full name")
+    data_helper.cache_github_reference(slack_user_id, profile["real_name"])
+
+    # If all else fails, return the Slack user's full name.
+    return profile["real_name"]
+
+
+def _github_users() -> list[NamedUser.NamedUser]:
+    """Return a list of all GitHub users in the organization."""
+    try:
+        return list(gh.get_organization(github_helper.ORG_NAME).get_members())
+    except GithubException as e:
+        error = "Failed to list GitHub members in the organization"
+        debug.log(f"{error} `{github_helper.ORG_NAME}`:\n```{e}```")
+        return []
+
+
+def github_pr_participants(pr) -> list[str]:
+    """Return all the participants in the given GitHub PR.
+
+    Args:
+        pr: GitHub PR data.
+
+    Returns:
+        List of usernames (author/reviewers/assignees),
+        guaranteed to be sorted and without repetitions.
+    """
+    usernames = []
+
+    # Author.
+    if pr.user.type == "User":
+        usernames.append(pr.user.login)
+
+    # Specific reviewers (not teams) + assignees.
+    for user in pr.requested_reviewers + pr.assignees:
+        if user.type == "User" and user.login not in usernames:
+            usernames.append(user.login)
+
+    return sorted(usernames)
+
+
+def github_username_to_slack_user(github_username: str) -> dict:
+    """Convert a GitHub username to Slack user data (empty in case of errors)."""
+    slack_user_id = github_username_to_slack_user_id(github_username)
+    return _slack_user_info(slack_user_id) if slack_user_id else {}
+
+
+def github_username_to_slack_user_id(github_username: str) -> str:
+    """Convert a GitHub username to a Slack user ID, or "" if not found.
+
+    This function tries to match the email address first, and then
+    falls back to matching the user's full name (case-insensitive).
+
+    This function also caches both successful and failed results for
+    a day, to reduce the amount of API calls, especially to Slack.
+    """
+    # Don't even check GitHub teams, only individual users.
+    if "/" in github_username:
+        return ""
+
+    # Optimization: if we already have it cached, no need to look it up.
+    slack_user_id = data_helper.cached_slack_user_id(github_username)
+    if slack_user_id in ("bot", "not found"):
+        return ""
+    elif slack_user_id:
+        return slack_user_id
+
+    user = gh.get_user(github_username)
+    gh_user_link = f"<{user.html_url}|{github_username}>"
+
+    # Special case: GitHub bots can't have Slack identities.
+    if user.type == "Bot":
+        data_helper.cache_slack_user_id(github_username, "bot")
+        return ""
+
+    # Try to match by the email address first.
+    if not user.email:
+        debug.log(f"GitHub user {gh_user_link}: email address not found")
+    else:
+        slack_user_id = _email_to_slack_user_id(user.email)
+        if slack_user_id:
+            data_helper.cache_slack_user_id(github_username, slack_user_id)
+            return slack_user_id
+
+    # Otherwise, try to match by the user's full name.
+    github_name = (user.name or "").lower()
+    if not github_name:
+        debug.log(f"GitHub user {gh_user_link}: full name not found")
+        return ""
+
+    for user in _slack_users():
+        profile = user.get("profile", {})
+        real_name = profile.get("real_name", "").lower()
+        normalized_name = profile.get("real_name_normalized", "").lower()
+        if github_name in (real_name, normalized_name):
+            slack_user_id = user.get("id", "")
+            data_helper.cache_slack_user_id(github_username, slack_user_id)
+            return slack_user_id
+
+    # Optimization: cache unsuccessful results too (i.e. external users).
+    debug.log(f"GitHub user {gh_user_link}: email & name not found in Slack")
+    data_helper.cache_slack_user_id(github_username, "not found")
+    return ""
+
+
+def _slack_user_info(slack_user_id: str) -> dict:
+    """Return all the details of a Slack user based on their ID."""
+    try:
+        resp = slack.users_info(user=slack_user_id)
+        return resp.get("user", {})
+    except SlackApiError as e:
+        error = f"Failed to get Slack user info for <@{slack_user_id}>"
+        debug.log(f"{error}: `{e.response['error']}`")
+        return {}
+
+
+def _slack_users() -> list[dict]:
+    """Return a list of all Slack users in the workspace."""
+    users = []
+    next_cursor = None
+    while next_cursor != "":
+        try:
+            resp = slack.users_list(cursor=next_cursor, limit=100)
+            users += resp.get("members", [])
+            next_cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+        except SlackApiError as e:
+            debug.log(f"Failed to list Slack users: `{e.response['error']}`")
+            next_cursor = ""
+
+    return users
+
+
+
+
+================================================
+FILE: github_copilot_seats/README.md
+================================================
+title: Cancel GitHub Copilot access for inactive users
+description: If Copilot was not used in a preceding period by users, unsubscribe and notify them in Slack. Users can ask for their subscription to be reinstated.
+integrations: ["githubcopilot", "slack"]
+categories: ["DevOps"]
+tags: ["child_sessions", "interactive_workflows", "user_interactions", "start", "subscribe", "next_event", "essential"]
+
+
+
+
+================================================
+FILE: github_copilot_seats/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that manages GitHub Copilot subscriptions.
+
+version: v1
+
+project:
+  name: github_copilot_seats
+
+  vars:
+    - name: IDLE_HOURS_THRESHOLD
+      value: 72
+    # Optional: manage GitHub Copilot subscriptions only for these users, separated by commas.
+    - name: MANAGED_LOGINS
+      value:
+    # Optional: Slack channel name or ID, for debugging.
+    - name: SLACK_LOG_CHANNEL
+      value:
+
+  connections:
+    - name: github_conn
+      integration: github
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    - name: check_daily
+      schedule: "@daily"
+      call: triggers.py:on_schedule
+    - name: check_now
+      connection: slack_conn
+      event_type: slash_command
+      call: triggers.py:on_slack_slash_command
+
+
+
+
+================================================
+FILE: github_copilot_seats/message.json
+================================================
+{
+	"blocks": [
+		{
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "You have been removed from the Copilot program due to inactivity",
+				"emoji": true
+			}
+		},
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "Please select an option:"
+			}
+		},
+		{
+			"type": "actions",
+			"elements": [
+				{
+					"type": "button",
+					"text": {
+						"type": "plain_text",
+						"text": ":repeat: Reinstate",
+						"emoji": true
+					},
+					"value": "reinstate",
+					"action_id": "reinstate-action"
+				},
+				{
+					"type": "button",
+					"text": {
+						"type": "plain_text",
+						"text": ":relieved: OK",
+						"emoji": true
+					},
+					"value": "ok",
+					"action_id": "ok-action"
+				}
+			]
+		}
+	]
+}
+
+
+
+
+================================================
+FILE: github_copilot_seats/seats.py
+================================================
+"""Manage GitHub Copilot seat assignments within an organization.
+
+It identifies inactive users and prunes their seats,
+but allow the users to get them back via Slack.
+"""
+
+from datetime import datetime, timedelta, UTC
+import json
+import os
+from pathlib import Path
+
+import autokitteh
+from autokitteh.github import github_client
+from autokitteh.slack import slack_client
+
+from users import github_username_to_slack_user_id
+
+
+GITHUB_ORG_NAME = os.getenv("github_conn__target_name", "")
+IDLE_HOURS_THRESHOLD = int(os.getenv("IDLE_HOURS_THRESHOLD", "72"))
+MANAGED_LOGINS = os.getenv("MANAGED_LOGINS")
+
+github = github_client("github_conn")
+org = github.get_organization(GITHUB_ORG_NAME)
+copilot = org.get_copilot()
+
+slack = slack_client("slack_conn")
+
+
+def find_idle_seats(*, prune: bool = False) -> list[dict[str, str]]:
+    """Identifies idle GitHub Copilot users based on their last activity time.
+
+    If `prune` is set to `True`, it also cancels their seat assignments and
+    interacts with the users asynchronously to confirm this action.
+    """
+    idle_seats = []
+    for seat in copilot.get_seats():
+        # If the project is limited to specific org users, ignore the rest.
+        managed_logins = MANAGED_LOGINS.split(",") if MANAGED_LOGINS else []
+        if managed_logins and seat.assignee.login not in managed_logins:
+            print(f"Skipping unmanaged user: {seat.assignee.login}")
+            continue
+
+        # Was the assigned seat being used recently?
+        now = datetime.now(UTC)
+        delta = now - seat.last_activity_at
+        is_active = delta < timedelta(hours=IDLE_HOURS_THRESHOLD)
+
+        comparison = "<" if is_active else ">="
+        status = f"{seat.assignee.login}: {now} - {seat.last_activity_at} = "
+        status += f"{delta} {comparison} {IDLE_HOURS_THRESHOLD} hours"
+        print(status)
+
+        if is_active:
+            continue
+
+        # Convert the non-serializable "CopilotSeat" object into a simple dictionary.
+        simple_seat = {
+            "assignee_login": seat.assignee.login,
+            "last_activity_at": seat.last_activity_at.isoformat(),
+        }
+        idle_seats.append(simple_seat)
+
+        # Interact with the user asynchronously in a child workflow.
+        if prune:
+            autokitteh.start(loc="seats.py:prune_idle_seat", data=simple_seat)
+
+    return idle_seats
+
+
+def prune_idle_seat(seat: dict[str, str]) -> None:
+    """Interacts via Slack with a GitHub user assigned to an idle Copilot seat.
+
+    Note:
+        This function is designed to run as a child workflow, by calling:
+        autokitteh.start(loc="seats.py:prune_idle_seat", data={...})
+
+    Args:
+        seat: Username and last activity timestamp of the GitHub user to which
+            the Copilot seat is assigned.
+    """
+    github_login = seat.data["assignee_login"]
+    report(github_login, "removing seat")
+    copilot.remove_seats([github_login])
+
+    slack_id = github_username_to_slack_user_id(github_login)
+    if not slack_id:
+        print(f"No Slack user found for GitHub user {github_login}")
+        return
+
+    report(github_login, "notifying user")
+
+    # Load a blocks-based interactive message template
+    # from a JSON file and post it to the user's Slack.
+    blocks = json.loads(Path("message.json").read_text())["blocks"]
+    slack.chat_postMessage(channel=slack_id, blocks=blocks)
+
+    # Subscribe to Slack interaction events, waiting for the user's response.
+    filter = f"event_type == 'interaction' && data.user.id == '{slack_id}'"
+    subscription = autokitteh.subscribe("slack_conn", filter)
+
+    # Retrieve the value from the user's response in the Slack event.
+    value = autokitteh.next_event(subscription)["actions"][0]["value"]
+
+    # The user's response either confirms the action or reinstates the seat.
+    match value:
+        case "ok":
+            report(github_login, "ok")
+            msg = "Okey dokey!"
+        case "reinstate":
+            report(github_login, "reinstate")
+            copilot.add_seats([github_login])
+            msg = "You have been reinstated to the Copilot program."
+        case _:
+            report(github_login, f"weird response: {value}")
+            msg = f"Response: `{value}` not recognized."
+
+    slack.chat_postMessage(channel=slack_id, text=msg)
+
+
+def report(github_login: str, msg: str) -> None:
+    channel = os.getenv("SLACK_LOG_CHANNEL")
+    if channel:
+        slack.chat_postMessage(channel=channel, text=f"{github_login}: {msg}")
+
+
+
+
+================================================
+FILE: github_copilot_seats/triggers.py
+================================================
+"""Manage scheduled tasks and Slack commands for idle seat management."""
+
+from autokitteh.slack import slack_client
+
+import seats
+
+
+def on_schedule() -> None:
+    for seat in seats.find_idle_seats(prune=True):
+        print(seat)
+
+
+def on_slack_slash_command(event) -> None:
+    find_seats = True
+    match event.data.text.lower():
+        case "prune-idle-copilot-seats":
+            prune = True
+        case "find-idle-copilot-seats":
+            prune = False
+        case _:
+            find_seats = False
+
+    if find_seats:
+        idle_seats = seats.find_idle_seats(prune=prune)
+        action = "Pruned" if prune else "Found"
+        msg = f"{action} {len(idle_seats)} idle seats for these users: "
+        msg += ", ".join(_get_logins(idle_seats))
+    else:
+        msg = "Error: unrecognized command"
+
+    slack_client("slack_conn").chat_postEphemeral(
+        channel=event.data.channel_id, user=event.data.user_id, text=msg
+    )
+
+
+def _get_logins(idle_seats: list[dict[str, str]]) -> list[str]:
+    return [seat["assignee_login"] for seat in idle_seats]
+
+
+
+
+================================================
+FILE: github_copilot_seats/users.py
+================================================
+"""User-related helper functions across GitHub and Slack.
+
+Based on: https://github.com/autokitteh/kittehub/blob/main/purrr/users.py
+"""
+
+from autokitteh.github import github_client
+from autokitteh.slack import slack_client
+from slack_sdk.errors import SlackApiError
+
+
+github = github_client("github_conn")
+slack = slack_client("slack_conn")
+
+
+def github_username_to_slack_user_id(github_username: str) -> str:
+    """Convert a GitHub username to a Slack user ID, or "" if not found.
+
+    This function tries to match the email address first, and then
+    falls back to matching the user's full name (case-insensitive).
+    """
+    user = github.get_user(github_username)
+
+    # Special case: GitHub bots can't have Slack identities.
+    if user.type == "Bot":
+        return ""
+
+    # Try to match by the email address first.
+    if user.email:
+        slack_user_id = _email_to_slack_user_id(user.email)
+        if slack_user_id:
+            return slack_user_id
+
+    # Otherwise, try to match by the user's full name.
+    github_name = (user.name or "").lower()
+    if not github_name:
+        return ""
+
+    for user in _slack_users():
+        profile = user.get("profile", {})
+        real_name = profile.get("real_name", "").lower()
+        normalized_name = profile.get("real_name_normalized", "").lower()
+        if github_name in (real_name, normalized_name):
+            return user.get("id", "")
+
+    return ""
+
+
+def _email_to_slack_user_id(email: str) -> str:
+    """Convert an email address to a Slack user ID, or "" if not found."""
+    try:
+        resp = slack.users_lookupByEmail(email=email)
+        return resp.get("user", {}).get("id", "")
+    except SlackApiError:
+        return ""
+
+
+def _slack_users() -> list[dict]:
+    """Return a list of all Slack users in the workspace."""
+    users = []
+    next_cursor = None
+    while next_cursor != "":
+        try:
+            resp = slack.users_list(cursor=next_cursor, limit=100)
+            users += resp.get("members", [])
+            next_cursor = resp.get("response_metadata", {}).get("next_cursor", "")
+        except SlackApiError:
+            next_cursor = ""
+
+    return users
+
+
+
+
+================================================
+FILE: quickstart/README.md
+================================================
+title: Quickstart
+description: Sample for quickstart
+integrations: ["http"]
+categories: ["Samples"]
+tags: ["essential"]
+
+
+
+
+================================================
+FILE: quickstart/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes
+# the minimal setup of an AutoKitteh project.
+
+version: v1
+
+project:
+  name: quickstart
+
+  triggers:
+    - name: quickstart_webhook
+      type: webhook
+      event_type: get
+      call: program.py:quickstart
+
+
+
+
+================================================
+FILE: quickstart/program.py
+================================================
+"""Handler for manual runs with a simple loop."""
+
+import time
+
+
+SLEEP_SECONDS = 1
+ITERATIONS = 5
+
+
+def quickstart(_):
+    for i in range(ITERATIONS):
+        print(f"Loop iteration: {i + 1} of {ITERATIONS}")
+        time.sleep(SLEEP_SECONDS)
+
+
+
+
+================================================
+FILE: reliability/aws_health_monitor/README.md
+================================================
+title: AWS Health monitor
+description: Announce AWS Health events in Slack channels, based on resource ownership data in a Google Sheet
+integrations: ["aws", "slack", "sheets"]
+categories: ["Reliability"]
+tags: ["activity", "scheduled_tasks", "monitoring", "notifications", "data_processing", "essential"]
+
+
+
+
+================================================
+FILE: reliability/aws_health_monitor/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that announces AWS Health events in Slack
+# channels, based on resource ownership data in a Google Sheet.
+
+version: v1
+
+project:
+  name: aws_health_monitor
+
+  vars:
+    - name: GOOGLE_SHEET_URL
+      value: https://docs.google.com/spreadsheets/d/1PalmLwSZOPW9k668_jU-wFI5xCj88a4mDfNUtJAupMQ/
+    - name: TRIGGER_INTERVAL
+      value: 1m
+
+  connections:
+    - name: aws_conn
+      integration: aws
+    - name: sheets_conn
+      integration: googlesheets
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    - name: every_minute
+      schedule: "@every 1m"
+      call: program.py:on_schedule
+
+
+
+
+================================================
+FILE: reliability/aws_health_monitor/program.py
+================================================
+"""Announce AWS Health events in Slack, based on resource ownership in a Google Sheet.
+
+API documentation:
+- https://docs.aws.amazon.com/health/
+- https://aws.amazon.com/blogs/mt/tag/aws-health-api/
+
+See the configuration and deployment instructions in the README.md file.
+"""
+
+from datetime import datetime, timedelta, UTC
+import json
+import os
+
+import autokitteh
+from autokitteh.aws import boto3_client
+from autokitteh.google import google_id, google_sheets_client
+from autokitteh.slack import slack_client
+from hubspot.crm.contacts.exceptions import ApiException
+
+
+OWNERSHIP_DATA = os.getenv("GOOGLE_SHEET_URL", "")
+
+slack = slack_client("slack_conn")
+
+
+def on_schedule(_):
+    """Workflow's entry-point, triggered at the beginning of every minute."""
+    slack_channels = _read_google_sheet()
+    events = _aws_health_events()
+
+    if not events:
+        print("No AWS Health events found.")
+        return
+
+    events_by_arn = {event["arn"]: event for event in events}
+    for entity in _affected_aws_entities(events):
+        project = entity.get("tags", {}).get("project")
+        if not project:
+            print(f"Error: AWS entity without project tag: {entity}")
+            continue
+
+        channel = slack_channels.get(project)
+        affecting_events = [events_by_arn[arn] for arn in entity["eventArns"]]
+        _post_slack_message(project, channel, entity, affecting_events)
+
+
+@autokitteh.activity
+def _read_google_sheet() -> dict[str, str]:
+    """Read mapping of project tags to Slack channels from Google Sheet."""
+    sheets = google_sheets_client("google_sheets_conn").spreadsheets().values()
+    rows = sheets.get(spreadsheetId=google_id(OWNERSHIP_DATA), range="A:B").execute()
+    return {row[0].strip(): row[1].strip() for row in rows.get("values", [])}
+
+
+@autokitteh.activity
+def _aws_health_events() -> list[dict]:
+    """List all recent AWS Health events.
+
+    This function currently fetches events for a single AWS account:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_events.html
+
+    With a bit more code, you can also fetch events for multiple ones:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_events_for_organization.html
+    """
+    # Remove the unit suffix ("m") and parse as an integer.
+    interval = int((os.getenv("TRIGGER_INTERVAL", "1m"))[:-1])
+    try:
+        end_time = datetime.now(UTC).replace(second=0, microsecond=0)
+        start_time = end_time - timedelta(minutes=interval)
+        filter = {"lastUpdatedTimes": [{"from": start_time, "to": end_time}]}
+
+        aws = boto3_client("aws_conn", "health")
+        resp = aws.describe_events(filter=filter)
+        events = resp.get("events", [])
+
+        next_token = resp.get("nextToken")
+        while next_token:
+            resp = aws.describe_events(filter=filter, nextToken=next_token)
+            events += resp.get("events", [])
+            next_token = resp.get("nextToken")
+
+        return events
+
+    except ApiException as e:
+        print(f"Boto3 error: {e}")
+        return []
+
+
+@autokitteh.activity
+def _affected_aws_entities(events: list[dict]) -> list[dict]:
+    """List all AWS entities affected by the given AWS Health events.
+
+    API reference:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_affected_entities.html
+    """
+    try:
+        aws = boto3_client("aws_conn", "health")
+        arns = [event["arn"] for event in events]
+
+        filter = {"eventArns": arns}
+        # Possible alternative: describe_affected_entities_for_organization.
+        resp = aws.describe_affected_entities(filter=filter)
+        entities = resp.get("entities", [])
+
+        next_token = resp.get("nextToken")
+        while next_token:
+            resp = aws.describe_affected_entities(filter=filter, nextToken=next_token)
+            entities += resp.get("entities", [])
+            next_token = resp.get("nextToken")
+
+        return entities
+    except ApiException as e:
+        print(f"Boto3 error: {e}")
+        return []
+
+
+def _post_slack_message(
+    channel: str, project: str, entity: dict, affecting_events: list[dict]
+):
+    if not channel:
+        print(f"Error: project tag {project!r} not found in {OWNERSHIP_DATA}")
+
+    text = f"This AWS resource:\n```\n{json.dumps(entity, indent=4)}\n```"
+    text += "\nis affected by these AWS Health events:"
+    for i, event in enumerate(affecting_events, 1):
+        text += f"\n{i}.\n```\n{json.dumps(event, indent=4)}\n```"
+
+    print(f"Posting in Slack channel: {channel}")
+    slack.chat_postMessage(channel=channel, text=text)
+
+
+
+
+================================================
+FILE: samples/google/gmail/README.md
+================================================
+title: Gmail sample
+description: Samples using Gmail APIs
+integrations: ["gmail"]
+categories: ["Samples"]
+tags: ["webhook_handling", "store", "state_management", "data_processing", "essential"]
+
+
+
+
+================================================
+FILE: samples/google/gmail/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates 2-way integration with
+# Gmail (https://www.google.com/gmail/about/).
+
+version: v1
+
+project:
+  name: gmail_sample
+
+  connections:
+    - name: gmail_conn
+      integration: gmail
+
+  triggers:
+    - name: on_http_get
+      type: webhook
+      event_type: get
+      call: program.py:on_http_get
+    - name: gmail_mailbox_change
+      connection: gmail_conn
+      event_type: mailbox_change
+      call: program.py:on_gmail_mailbox_change
+
+
+
+
+================================================
+FILE: samples/google/gmail/program.py
+================================================
+"""This program demonstrates AutoKitteh's 2-way Gmail integration.
+
+API documentation:
+- https://docs.autokitteh.com/integrations/google/gmail/python
+- https://docs.autokitteh.com/integrations/google/gmail/events
+"""
+
+import base64
+import json
+
+import autokitteh
+from autokitteh.google import gmail_client
+from googleapiclient.errors import HttpError
+
+
+gmail = gmail_client("gmail_conn").users()
+
+
+def on_http_get(event):
+    """Handle Gmail interaction via HTTP trigger using query params.
+
+    Example URL: "http://localhost:9980/webhooks/<webhook_slug>?cmd=list_drafts"
+
+    Commands:
+    - cmd=get_profile
+    - cmd=list_drafts&query=optional_query
+    - cmd=get_draft&draft_id=<draft_ID>
+    - cmd=list_messages&query=optional_query
+    - cmd=get_message&message_id=<message_ID>
+    - cmd=send_message&text=<message_text>
+
+    Args:
+        event: HTTP request event data (contains query parameters).
+    """
+    params = event.data.url.query
+    cmd = params.get("cmd")
+
+    match cmd:
+        case "get_profile":
+            _get_profile()
+        case "list_drafts":
+            _drafts_list(params.get("query", ""))
+        case "get_draft":
+            _drafts_get(params.get("draft_id"))
+        case "list_messages":
+            _messages_list(params.get("query", ""))
+        case "get_message":
+            _messages_get(params.get("message_id"))
+        case "send_message":
+            _messages_send(params.get("text"))
+        case _:
+            return "Unknown command"
+
+
+def _get_profile():
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.html#getProfile"""
+    resp = gmail.getProfile(userId="me").execute()
+    print(resp["emailAddress"])
+    print("Total no. of messages:", resp["messagesTotal"])
+    print("Total no. of threads:", resp["threadsTotal"])
+    print("Current History record ID:", resp["historyId"])
+
+
+def _drafts_get(id):
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.drafts.html#get
+
+    Args:
+        id: Required ID of the draft to retrieve.
+    """
+    try:
+        resp = gmail.drafts().get(userId="me", id=id).execute()
+    except HttpError as e:
+        print(f"Error: `{e.reason}`")
+        return
+
+    print(f"```\n{json.dumps(resp, indent=4)}\n```")
+
+
+def _drafts_list(query):
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.drafts.html#list
+
+    Args:
+        query: Optional query, e.g. "is:unread".
+    """
+    try:
+        resp = gmail.drafts().list(userId="me", q=query, maxResults=10).execute()
+    except HttpError as e:
+        print(f"Error: `{e.reason}`")
+        return
+
+    print(f"Result size estimate: `{resp['resultSizeEstimate']}`")
+
+    for i, d in enumerate(resp.get("drafts", []), start=1):
+        print(f"{i}\n```\n{json.dumps(d, indent=4)}\n```")
+
+    next_page_token = resp.get("nextPageToken")
+    if next_page_token:
+        print(f"Next page token: `{next_page_token}`")
+
+
+def _messages_get(id):
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.messages.html#get
+
+    Args:
+        id: Required ID of the message to retrieve.
+    """
+    try:
+        resp = gmail.messages().get(userId="me", id=id).execute()
+    except HttpError as e:
+        print(f"Error: `{e.reason}`")
+        return
+
+    print(f"```\n{json.dumps(resp, indent=4)}\n```")
+
+
+def _messages_list(query):
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.messages.html#list
+
+    See also:
+    https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.messages.html#list_next
+
+    Args:
+        query: Optional query, e.g. "is:unread".
+    """
+    try:
+        resp = gmail.messages().list(userId="me", q=query, maxResults=10).execute()
+    except HttpError as e:
+        print(f"Error: `{e.reason}`")
+        return
+
+    print(f"Result size estimate: `{resp['resultSizeEstimate']}`")
+
+    for i, m in enumerate(resp.get("messages", []), start=1):
+        print(f"{i}\n```\n{json.dumps(m, indent=4)}\n```")
+
+    next_page_token = resp.get("nextPageToken")
+    if next_page_token:
+        print(f"Next page token: `{next_page_token}`")
+
+
+def _messages_send(text):
+    """https://developers.google.com/resources/api-libraries/documentation/gmail/v1/python/latest/gmail_v1.users.messages.html#send
+
+    See also: https://developers.google.com/gmail/api/guides/sending
+
+    This is the same as Google's send-message snippet, but simpler:
+    https://github.com/googleworkspace/python-samples/blob/main/gmail/snippet/send%20mail/send_message.py
+
+    Args:
+        text: Short message to send to yourself.
+    """
+    profile = gmail.getProfile(userId="me").execute()
+
+    # Raw text compliant with https://datatracker.ietf.org/doc/html/rfc5322.
+    msg = f"""From: {profile["emailAddress"]}
+    To: {profile["emailAddress"]}
+    Subject: Test from AutoKitteh
+
+    {text}"""
+
+    msg = msg.replace("\n", "\r\n").replace("    ", "")
+    msg = base64.urlsafe_b64encode(msg.encode()).decode()
+    try:
+        gmail.messages().send(userId="me", body={"raw": msg}).execute()
+    except HttpError as e:
+        print(f"Error: `{e.reason}`")
+        return
+
+    print("Message sent successfully!")
+
+
+def on_gmail_mailbox_change(event):
+    """Gmail Mailbox Change Event Handler.
+
+    This function acts as a custom event handler for Gmail mailbox changes
+    (triggered via Pub/Sub webhook events). Due to limitations
+    in Gmail's native history ID event handling, this
+    function detects and handles incoming emails events.
+    """
+    try:
+        history_id = event.data.get("history_id")
+        if not history_id:
+            return
+
+        current_history_id = int(history_id)
+        last_processed_id = int(
+            autokitteh.get_value("last_processed_id") or (current_history_id - 100)
+        )
+
+        history = (
+            gmail.history()
+            .list(userId="me", startHistoryId=str(last_processed_id))
+            .execute()
+        )
+
+        if "history" in history:
+            for history_record in history["history"]:
+                record_id = int(history_record["id"])
+
+                # Skip already processed records.
+                if record_id <= last_processed_id:
+                    continue
+
+                if "messagesAdded" in history_record:
+                    for message_entry in history_record["messagesAdded"]:
+                        message_id = message_entry["message"]["id"]
+                        message = (
+                            gmail.messages()
+                            .get(
+                                userId="me",
+                                id=message_id,
+                                format="metadata",
+                                metadataHeaders=["From", "To", "Subject"],
+                            )
+                            .execute()
+                        )
+
+                        # Only process INBOX messages (incoming).
+                        labels = message.get("labelIds", [])
+                        if "INBOX" in labels and "SENT" not in labels:
+                            on_new_message(message)
+
+        # Only update if we processed something new.
+        if current_history_id > last_processed_id:
+            autokitteh.set_value("last_processed_id", str(current_history_id))
+
+    except HttpError as e:
+        print(f"Error: {e.reason}")
+
+
+def on_new_message(message):
+    headers = {
+        h["name"]: h["value"] for h in message.get("payload", {}).get("headers", [])
+    }
+    print("New Mail Received:")
+    print(f"From: {headers.get('From')}")
+    print(f"To: {headers.get('To')}")
+    print(f"Subject: {headers.get('Subject')}")
+
+
+
+
+================================================
+FILE: samples/runtime_events/README.md
+================================================
+title: Runtime Events sample
+description: Samples using events in AutoKitteh - subscribe(), next_event(), unsubscribe()
+integrations: ["autokitteh"]
+categories: ["Samples"]
+tags: ["subscribe", "next_event", "unsubscribe", "event_filtering", "timeout_handling", "essential"]
+
+
+
+
+================================================
+FILE: samples/runtime_events/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates runtime event handling.
+
+version: v1
+
+project:
+  name: runtime_events_sample
+
+  triggers:
+    - name: meow_webhook
+      type: webhook
+      event_type: get
+      filter: data.url.path.endsWith("/meow")
+      call: program.py:on_http_get_meow
+
+
+
+
+================================================
+FILE: samples/runtime_events/program.py
+================================================
+"""This program demonstrates AutoKitteh's runtime event handling."""
+
+from datetime import timedelta
+
+import autokitteh
+
+
+def on_http_get_meow(event):
+    """This workflow is triggered by a predefined HTTP GET request event."""
+    print("Got a meow, waiting for a woof")
+
+    # Wait (up to 1 minute) for a subsequent webhook
+    # event where the URL path ends with "woof".
+    filter = "data.url.path.endsWith('/woof')"
+    sub = autokitteh.subscribe("meow_webhook", filter)
+    delta = timedelta(minutes=1)
+    next = autokitteh.next_event(sub, timeout=delta)
+
+    if next:
+        print("Got a woof:", next)
+    else:
+        print("Timeout!")
+
+
+
+
+================================================
+FILE: samples/slack/README.md
+================================================
+title: Slack sample
+description: Samples using Slack APIs
+integrations: ["slack"]
+categories: ["Samples"]
+tags: ["interactive_workflows", "user_interactions", "AttrDict", "webhook_handling", "essential"]
+
+
+
+
+================================================
+FILE: samples/slack/approval_message.json.txt
+================================================
+[
+    {
+        "type": "header",
+        "text": {
+            "type":  "plain_text",
+            "emoji": true,
+            "text":  "Title"
+        }
+    },
+    {
+        "type": "divider"
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "Message"
+        }
+    },
+    {
+        "type": "divider"
+    },
+    {
+        "type": "actions",
+        "elements": [
+            {
+                "type":  "button",
+                "style": "primary",
+                "text": {
+                    "type":  "plain_text",
+                    "emoji": true,
+                    "text":  "Approve"
+                },
+                "value":     "Approve",
+                "action_id": "Approve ActionID"
+            },
+            {
+                "type":  "button",
+                "style": "danger",
+                "text": {
+                    "type":  "plain_text",
+                    "emoji": true,
+                    "text":  "Deny"
+                },
+                "value":     "Deny",
+                "action_id": "Deny ActionID"
+            }
+        ]
+    }
+]
+
+
+
+
+================================================
+FILE: samples/slack/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates 2-way integration with
+# Slack (https://slack.com).
+
+version: v1
+
+project:
+  name: slack_sample
+
+  connections:
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    - name: slack_app_mention
+      connection: slack_conn
+      event_type: app_mention
+      call: program.py:on_slack_app_mention
+    - name: slack_interaction
+      connection: slack_conn
+      event_type: interaction
+      call: program.py:on_slack_interaction
+    - name: slack_message
+      connection: slack_conn
+      event_type: message
+      call: program.py:on_slack_message
+    - name: slack_reaction_added
+      connection: slack_conn
+      event_type: reaction_added
+      call: program.py:on_slack_reaction_added
+    - name: slack_slash_command
+      connection: slack_conn
+      event_type: slash_command
+      call: program.py:on_slack_slash_command
+
+
+
+
+================================================
+FILE: samples/slack/message.json
+================================================
+{
+    "blocks": [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "This is a header block",
+                "emoji": true
+            }
+        },
+        {
+            "type": "divider"
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "This is a section block with a button."
+            },
+            "accessory": {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Click Me",
+                    "emoji": true
+                },
+                "value": "click_me_123",
+                "url": "https://google.com",
+                "action_id": "button-action"
+            }
+        }
+    ]
+}
+
+
+
+
+================================================
+FILE: samples/slack/program.py
+================================================
+"""This program demonstrates AutoKitteh's 2-way Slack integration.
+
+This program implements multiple entry-point functions that are triggered
+by incoming Slack events, as defined in the "autokitteh-python.yaml"
+manifest file. These functions also execute various Slack API calls.
+
+Events that this program responds to:
+- Mentions of the Slack app in messages (e.g. "Hi @autokitteh")
+- Slash commands registered by the Slack app (`/autokitteh <channel name or ID>`)
+- New and edited messages and replies
+- New emoji reactions
+
+Slack API documentation:
+- Python client API: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html
+- Events API reference: https://api.slack.com/events?filter=Events
+
+This program isn't meant to cover all available functions and events.
+It merely showcases a few illustrative, annotated, reusable examples.
+"""
+
+from pathlib import Path
+import time
+
+import autokitteh
+from autokitteh.slack import slack_client
+
+
+def on_slack_app_mention(event):
+    """https://api.slack.com/events/app_mention
+
+    Args:
+        event: Slack event data.
+    """
+    slack = slack_client("slack_conn")
+
+    # Send messages in response to the event:
+    # - DM to the user who triggered the event (channel ID = user ID)
+    # - Two messages to the channel "#slack-test"
+    # See: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html#slack_sdk.web.client.WebClient.chat_postMessage
+    text = f"You mentioned me in <#{event.data.channel}> and wrote: `{event.data.text}`"
+    slack.chat_postMessage(channel=event.data.user, text=text)
+
+    text = text.replace("You", f"<@{event.data.user}>")
+    slack.chat_postMessage(channel="#slack-test", text=text)
+
+    text = "Before update :crying_cat_face:"
+    resp = slack.chat_postMessage(channel="#slack-test", text=text)
+
+    # Encountered an error? Print debugging information
+    # in the AutoKitteh session's log, and finish.
+    resp.validate()
+
+    # Update the last sent message, after a few seconds.
+    # See: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html#slack_sdk.web.client.WebClient.chat_update
+    time.sleep(10)
+    resp = autokitteh.AttrDict(resp.data)
+    text = "After update :smiley_cat:"
+    resp = slack.chat_update(channel=resp.channel, ts=resp.ts, text=text)
+    resp = autokitteh.AttrDict(resp.data)
+
+    # Reply to the message's thread, after a few seconds.
+    time.sleep(5)
+    text = "Reply before update :crying_cat_face:"
+    resp = slack.chat_postMessage(channel=resp.channel, text=text, thread_ts=resp.ts)
+    resp = autokitteh.AttrDict(resp.data)
+
+    # Update the threaded reply message, after a few seconds.
+    time.sleep(5)
+    text = "Reply after update :smiley_cat:"
+    slack.chat_update(channel=resp.channel, ts=resp.ts, text=text)
+
+    # Add a reaction to the threaded reply message.
+    # See: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html#slack_sdk.web.client.WebClient.reactions_add
+    slack.reactions_add(channel=resp.channel, name="blob-clap", timestamp=resp.ts)
+
+    # Retrieve all the replies.
+    # See: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html#slack_sdk.web.client.WebClient.conversations_replies
+    resp = slack.conversations_replies(channel=resp.channel, ts=resp.ts)
+
+    # For educational purposes, print all the replies in the AutoKitteh session's log.
+    resp.validate()
+    for text in resp.get("messages", default=[]):
+        print(text)
+
+
+def on_slack_message(event):
+    """https://api.slack.com/events/message
+
+    Args:
+        event: Slack event data.
+    """
+    slack = slack_client("slack_conn")
+
+    if not event.data.subtype:
+        user = f"<@{event.data.user}>"
+        if not event.data.thread_ts:
+            _on_slack_new_message(slack, event.data, user)
+        else:
+            # https://api.slack.com/events/message/message_replied
+            _on_slack_reply_message(slack, event.data, user)
+    elif event.data.subtype == "message_changed":
+        user = f"<@{event.data.message.user}>"  # Not the same as above!
+        _on_slack_message_changed(slack, event.data, user)
+
+
+def _on_slack_new_message(slack, data, user):
+    """Someone wrote a new message."""
+    text = f":point_up: {user} wrote: `{data.text}`"
+    slack.chat_postMessage(channel=data.channel, text=text)
+
+
+def _on_slack_reply_message(slack, data, user):
+    """Someone wrote a reply in a thread."""
+    text = f":point_up: {user} wrote a reply to <@{data.parent_user_id}>: `{data.text}`"
+    ts = data.thread_ts
+    slack.chat_postMessage(channel=data.channel, text=text, thread_ts=ts)
+
+
+def _on_slack_message_changed(slack, data, user):
+    """Someone edited a message."""
+    old, new = data.previous_message.text, data.message.text
+    text = f":point_up: {user} edited a message from `{old}` to `{new}`"
+
+    # Thread TS may or may not be empty, depending on the edited message.
+    thread = data.message.thread_ts
+
+    slack.chat_postMessage(channel=data.channel, text=text, thread_ts=thread)
+
+
+def on_slack_reaction_added(event):
+    """https://api.slack.com/events/reaction_added
+
+    Args:
+        event: Slack event data.
+    """
+    # For educational purposes, print the event data in the AutoKitteh session's log.
+    print(event.data.user)
+    print(event.data.reaction)
+    print(event.data.item)
+
+
+def on_slack_slash_command(event):
+    """https://api.slack.com/interactivity/slash-commands
+
+    See also: https://api.slack.com/interactivity/handling#message_responses
+
+    The text after the slash command is expected to be a valid target for a
+    Slack message (https://api.slack.com/methods/chat.postMessage#channels):
+    Slack user ID ("U"), user DM ID ("D"), multi-person/group DM ID ("G"),
+    channel ID ("C"), or channel name (with or without the "#" prefix).
+
+    Note that all targets except "U", "D" and public channels require
+    the Slack app to be added in advance.
+
+    Args:
+        event: Slack event data.
+    """
+    slack = slack_client("slack_conn")
+
+    # Retrieve the profile information of the user who triggered this event.
+    # See: https://slack.dev/python-slack-sdk/api-docs/slack_sdk/web/client.html#slack_sdk.web.client.WebClient.users_info
+    user_info = slack.users_info(user=event.data.user_id)
+
+    # Encountered an error? Print debugging information
+    # in the AutoKitteh session's log, and finish.
+    user_info.validate()
+
+    profile = autokitteh.AttrDict(user_info.data).user.profile
+    text = f"Slack mention: <@{event.data.user_id}>"
+    slack.chat_postMessage(channel=event.data.user_id, text=text)
+    text = "Full name: " + profile.real_name
+    slack.chat_postMessage(channel=event.data.user_id, text=text)
+    text = "Email: " + profile.email
+    slack.chat_postMessage(channel=event.data.user_id, text=text)
+
+    # Treat the text of the user's slash command as a message target (e.g.
+    # channel or user), and send an interactive message to that target.
+    blocks = Path("approval_message.json.txt").read_text()
+    changes = [
+        ("Title", "Question From " + profile.real_name),
+        ("Message", "Please select one of these options... :smiley_cat:"),
+        ("ActionID", event.data.user_id),
+    ]
+    for old, new in changes:
+        blocks = blocks.replace(old, new)
+
+    slack.chat_postMessage(channel=event.data.text, blocks=blocks)
+
+
+def on_slack_interaction(event):
+    """https://api.slack.com/reference/interaction-payloads/block-actions
+
+    Args:
+        event: Slack event data.
+    """
+    # The Slack ID of the user who sent the question
+    # (we stored this in the buttons' action IDs).
+    action = autokitteh.AttrDict(event.data.actions[0])
+    origin = action.action_id.split()[-1]
+
+    # User selection = action value = button text
+    # (our convention, not Slack's, alternatives: action style/text).
+    text = f"<@{event.data.user.id}> clicked the `{action.value}` button"
+    if action.style == "primary":  # Green button.
+        text += " :+1:"
+    elif action.style == "danger":  # Red button.
+        text += " :-1:"
+
+    slack = slack_client("slack_conn")
+    slack.chat_postMessage(channel=origin, text=text)
+
+
+
+
+================================================
+FILE: task_chain/single_workflow/basic/README.md
+================================================
+title: Fault tolerant workflow with manual Slack approvals
+description: Runs a sequence of tasks with fault tolerance. In case of failure, user can decide to terminate or retry from the point of failure.
+integrations: ["slack"]
+categories: ["Durability"]
+tags: ["retry_mechanisms", "error_handling", "interactive_workflows", "user_interactions", "subscribe", "next_event", "unsubscribe", "essential"]
+
+
+
+
+================================================
+FILE: task_chain/single_workflow/basic/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that runs a sequence of tasks, using a
+# basic single-workflow approach.
+
+version: v1
+
+project:
+  name: task_chain
+
+  connections:
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    - name: slack_slash_command
+      connection: slack_conn
+      event_type: slash_command
+      call: program.py:on_slack_slash_command
+
+
+
+
+================================================
+FILE: task_chain/single_workflow/basic/interactive_message.json.txt
+================================================
+[
+    {
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "emoji": true,
+            "text": ":warning: Workflow Error"
+        }
+    },
+    {
+        "type": "divider"
+    },
+    {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": "MESSAGE"
+        }
+    },
+    {
+        "type": "divider"
+    },
+    {
+        "type": "actions",
+        "elements": [
+            {
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "emoji": true,
+                    "text": "Retry"
+                },
+                "value": "retry",
+            },
+            {
+                "type": "button",
+                "style": "danger",
+                "text": {
+                    "type": "plain_text",
+                    "emoji": true,
+                    "text": "Abort"
+                },
+                "value": "abort",
+            }
+        ]
+    }
+]
+
+
+
+
+================================================
+FILE: task_chain/single_workflow/basic/program.py
+================================================
+"""This module uses a single-workflow approach for the task-chain project.
+
+A single workflow runs all the tasks, including retry loops.
+It handles Slack interactions using runtime event subscriptions.
+"""
+
+from pathlib import Path
+import random
+
+import autokitteh
+from autokitteh.slack import slack_client
+
+
+slack = slack_client("slack_conn")
+
+
+def step1():
+    print("Step 1 is doing stuff...")
+
+
+def step2():
+    print("Step 2 is doing stuff...")
+
+
+def step3():
+    print("Step 3 is doing stuff...")
+    if random.choice([True, False]):
+        raise RuntimeError("Something bad happened")
+
+
+def step4():
+    print("Step 4 is doing stuff...")
+
+
+def on_slack_slash_command(event):
+    """Use a Slack slash command from a user to start a chain of tasks."""
+    user_id = event.data.user_id
+
+    if not run_retriable_task(step1, user_id):
+        return
+    if not run_retriable_task(step2, user_id):
+        return
+    if not run_retriable_task(step3, user_id):
+        return
+    if not run_retriable_task(step4, user_id):
+        return
+
+    message = "Workflow completed successfully :smiley_cat:"
+    slack.chat_postMessage(channel=user_id, text=message)
+
+
+def run_retriable_task(task, user_id) -> bool:
+    result = True
+    while result:
+        try:
+            task()
+            break
+        except RuntimeError as e:
+            result = ask_user_retry_or_abort(task.__name__, e, user_id)
+
+    if result:
+        message = f"Task `{task.__name__}` completed"
+        slack.chat_postMessage(channel=user_id, text=message)
+
+    return result
+
+
+def ask_user_retry_or_abort(task_name, error, user_id) -> bool:
+    sub = autokitteh.subscribe("slack_conn", 'event_type == "interaction"')
+
+    blocks = Path("interactive_message.json.txt").read_text()
+    blocks = blocks.replace("MESSAGE", f"The task `{task_name}` failed: `{error}`")
+    slack.chat_postMessage(channel=user_id, text="Workflow error", blocks=blocks)
+
+    # Wait for and handle the user's response in this workflow.
+    event = autokitteh.next_event(sub)
+    autokitteh.unsubscribe(sub)
+    return event.actions[0]["value"] == "retry"
+
+
+
+
