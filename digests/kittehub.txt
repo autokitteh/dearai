@@ -63,6 +63,11 @@ Directory structure:
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
+    │   ├── postgresql/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   ├── program.py
+    │   │   └── requirements.txt
     │   ├── purrr/
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
@@ -2831,6 +2836,76 @@ def _get_workflow(repo: github.Repository, path: str) -> github.Workflow:
 def _index2char(index: int) -> str:
     """Convert an index (0-2) to a workflow identifier (A-C)."""
     return chr(65 + index)
+
+
+
+================================================
+FILE: devops/postgresql/README.md
+================================================
+title: PostgreSQL connection
+description: Project showing how to connect to PostgreSQL database
+integrations: ["postgres"]
+categories: ["DevOps"]
+
+
+
+================================================
+FILE: devops/postgresql/autokitteh.yaml
+================================================
+# This is an example configuration file for a PostgreSQL sample project using Autokitteh.
+# It defines the project name, variables for database connection, and a trigger for executing a query
+# via a webhook.
+
+version: v1
+
+project:
+  name: postgresql_sample
+
+  vars:
+    - name: DSN
+      value: "postgresql://your_username:your_password@localhost:5432/your_database_name"
+
+  triggers:
+    - name: database_query
+      type: webhook
+      call: program.py:on_trigger
+
+
+
+================================================
+FILE: devops/postgresql/program.py
+================================================
+"""PostgreSQL connection example for AutoKitteh."""
+
+import os
+
+import autokitteh
+import psycopg2
+
+
+DSN = os.getenv("DSN")
+
+
+# Required: database operations only work in activities (for workflow reliability).
+@autokitteh.activity
+def on_trigger(_):
+    conn = psycopg2.connect(DSN)
+
+    try:
+        with conn.cursor() as cur:
+            # Your database operations here.
+            cur.execute("SELECT * FROM users")
+            results = cur.fetchall()
+            print(results)
+    finally:
+        conn.close()
+
+
+
+================================================
+FILE: devops/postgresql/requirements.txt
+================================================
+psycopg2
 
 
 
@@ -11610,6 +11685,7 @@ ALLOWED_INTEGRATIONS = (
     "hubspot",
     "jira",
     "linear",
+    "postgres",
     "scheduler",
     "sheets",
     "slack",
