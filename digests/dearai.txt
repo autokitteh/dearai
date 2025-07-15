@@ -23,6 +23,7 @@ Directory structure:
     ├── integrations/
     │   ├── GITHUB.md
     │   ├── GMAIL.md
+    │   ├── SCHEDULER.md
     │   └── SLACK.md
     └── pyak/
         ├── __init__.py
@@ -1156,6 +1157,16 @@ Reacting on gmail state change can be done in either of two ways:
 
 - Polling using a schedule trigger and checking the state, or -
 - Triggering on gmail events.
+
+
+
+================================================
+FILE: integrations/SCHEDULER.md
+================================================
+# Scheduler Integration
+
+The scheduller UI DOES NOT have a "Run Now" button.
+If there is a need to manually invoke it, use manual session run.
 
 
 
