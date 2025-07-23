@@ -9,6 +9,7 @@ import google.generativeai as genai
 import google.oauth2.credentials as credentials
 import google.oauth2.service_account as service_account
 from googleapiclient.discovery import build
+import gspread
 from .connections import check_connection_name, refresh_oauth
 from .errors import ConnectionInitError, OAuthRefreshError
 
@@ -148,6 +149,27 @@ def google_sheets_client(connection: str, **kwargs):
 
     Returns:
         Google Sheets client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def gspread_client(connection: str, **kwargs) ->gspread.Client:
+    """Initialize a gspread client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.gspread.org/en/latest/
+    https://github.com/burnash/gspread
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        gspread client.
 
     Raises:
         ValueError: AutoKitteh connection name is invalid.

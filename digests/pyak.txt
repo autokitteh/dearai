@@ -24,6 +24,7 @@ Directory structure:
     ├── oauth2_session.py
     ├── openai.py
     ├── packages.py
+    ├── reddit.py
     ├── salesforce.py
     ├── signals.py
     ├── slack.py
@@ -574,6 +575,7 @@ import google.generativeai as genai
 import google.oauth2.credentials as credentials
 import google.oauth2.service_account as service_account
 from googleapiclient.discovery import build
+import gspread
 from .connections import check_connection_name, refresh_oauth
 from .errors import ConnectionInitError, OAuthRefreshError
 
@@ -713,6 +715,27 @@ def google_sheets_client(connection: str, **kwargs):
 
     Returns:
         Google Sheets client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        OAuthRefreshError: OAuth token refresh failed.
+    """
+    ...
+
+
+def gspread_client(connection: str, **kwargs) ->gspread.Client:
+    """Initialize a gspread client, based on an AutoKitteh connection.
+
+    API documentation:
+    https://docs.gspread.org/en/latest/
+    https://github.com/burnash/gspread
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        gspread client.
 
     Raises:
         ValueError: AutoKitteh connection name is invalid.
@@ -924,15 +947,15 @@ class OAuthTokenProvider(credentials.TokenCredential):
 ================================================
 FILE: oauth2_session.py
 ================================================
-import requests
+from requests_toolbelt import sessions
 from os import getenv
 from .connections import refresh_oauth
 from .connections import check_connection_name
 from .errors import ConnectionInitError
 
 
-class OAuth2Session(requests.Session):
-    """Encapsulates arequests session, based on an AutoKitteh connection.
+class OAuth2Session(sessions.BaseUrlSession):
+    """Encapsulates a requests session, based on an AutoKitteh connection.
 
     - Automatically sets the Authorization header with an OAuth token.
     - Automatically refreshes an OAuth token if a refresh token is
@@ -994,6 +1017,36 @@ def install(*packages):
     >>> install('requests', 'numpy')
     >>> install('requests ~= 2.32', 'numpy == 2.0.0')
     >>> install(['pillow ~= 10.4', 'PIL'])
+    """
+    ...
+
+
+
+================================================
+FILE: reddit.py
+================================================
+"""Initializes a Reddit client, based on an AutoKitteh connection."""
+import os
+import praw
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def reddit_client(connection: str) ->praw.Reddit:
+    """Initialize a Reddit client, based on an AutoKitteh connection.
+
+    API reference:
+    https://praw.readthedocs.io/en/stable/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Reddit API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
     """
     ...
 

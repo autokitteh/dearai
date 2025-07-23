@@ -17,8 +17,11 @@ rm -f autokitteh.zip
 git clone --depth=1 --branch=main https://github.com/autokitteh/docs.autokitteh.com.git 
 rm -fR docs.autokitteh.com/.git 
 
-find kittehub-main -name autokitteh.yaml -exec grep integration: {} \; | cut -d:  -f 2 | xargs -n 1 echo - | sort -u > integrations.txt
-rm -fR kittehub-main/.git kittehub-main/.github
+cd kittehub-main/tests
+printf 'import metadata_definitions; print("\\n".join(sorted(metadata_definitions.ALLOWED_INTEGRATIONS)))' | python3 > ../../integrations.txt
+cd -
+
+rm -fR kittehub-main/.git kittehub-main/.github kittehub-main/tests
 find kittehub-main/ -maxdepth 1 -type f -exec rm -f {} \;
 find . \( -name \*.gpx -or -name \*.png \) -exec rm -f {} \;
 

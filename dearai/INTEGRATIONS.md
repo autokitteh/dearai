@@ -1,21 +1,29 @@
 The following integration names are supported:
-- asana
-- auth0
-- aws
-- chatgpt
-- confluence
-- discord
-- github
-- gmail
-- googlecalendar
-- googledrive
-- googleforms
-- googlegemini
-- googlesheets
-- height
-- hubspot
-- jira
-- slack
-- twilio
-- zoom
+asana
+auth0
+autokitteh
+aws
+calendar
+chatgpt
+confluence
+discord
+docs
+drive
+forms
+github
+githubcopilot
+gmail
+googlegemini
+height
+http
+hubspot
+jira
+linear
+postgres
+scheduler
+sheets
+slack
+sqlite3
+twilio
+zoom
 

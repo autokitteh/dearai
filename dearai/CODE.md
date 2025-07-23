@@ -18,46 +18,58 @@ google-api-python-client ~= 2.155
 google-auth-httplib2 ~= 0.2
 google-auth-oauthlib ~= 1.2
 google-generativeai ~= 0.8
+gspread ~= 6.2
 hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
 openai ~= 1.57
+praw ~= 7.8
 pyairtable ~= 3.1
 PyGithub ~= 2.6
 simple-salesforce ~= 1.12
 slack-sdk ~= 3.33
-tenacity ~= 9.0
 twilio ~= 9.4
 beautifulsoup4 ~= 4.12
 grpcio ~= 1.68
 grpcio-reflection ~= 1.68
 PyYAML ~= 6.0
 requests ~= 2.32
+requests-toolbelt ~= 1.0
 tenacity ~= 9.0
 """
+
+IMPORTANT: Never manually add these packages into the project's requirements.txt, they will be already automatically installed by the AutoKitteh runtime. Avoid using different package versions than what is already explicitly specified above.
 
 If the additional packages are required, they can be specified in a `requirements.txt` file.
 
 The following integration names are supported:
-- asana
-- auth0
-- aws
-- chatgpt
-- confluence
-- discord
-- github
-- gmail
-- googlecalendar
-- googledrive
-- googleforms
-- googlegemini
-- googlesheets
-- height
-- hubspot
-- jira
-- slack
-- twilio
-- zoom
+asana
+auth0
+autokitteh
+aws
+calendar
+chatgpt
+confluence
+discord
+docs
+drive
+forms
+github
+githubcopilot
+gmail
+googlegemini
+height
+http
+hubspot
+jira
+linear
+postgres
+scheduler
+sheets
+slack
+sqlite3
+twilio
+zoom
 
 
 ## Pitfalls
