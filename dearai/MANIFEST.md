@@ -123,6 +123,9 @@ The manifest is defined according to this schema:
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "value": {
           "type": "string"
         },

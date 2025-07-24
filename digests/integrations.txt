@@ -3,7 +3,8 @@ Directory structure:
     ├── GITHUB.md
     ├── GMAIL.md
     ├── SCHEDULER.md
-    └── SLACK.md
+    ├── SLACK.md
+    └── TWILIO.md
 
 ================================================
 FILE: GITHUB.md
@@ -58,5 +59,14 @@ FILE: SLACK.md
 ## Event Payload
 
 See https://api.slack.com/events.
+
+
+
+================================================
+FILE: TWILIO.md
+================================================
+# Twilio Integration
+
+You can use the Twilio integration to work with WhatsApp as well.
 
 

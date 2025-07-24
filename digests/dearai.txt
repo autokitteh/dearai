@@ -24,7 +24,8 @@ Directory structure:
     │   ├── GITHUB.md
     │   ├── GMAIL.md
     │   ├── SCHEDULER.md
-    │   └── SLACK.md
+    │   ├── SLACK.md
+    │   └── TWILIO.md
     └── pyak/
         ├── __init__.py
         ├── activities.py
@@ -870,6 +871,9 @@ The manifest is defined according to this schema:
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "value": {
           "type": "string"
         },
@@ -1211,6 +1215,15 @@ FILE: integrations/SLACK.md
 ## Event Payload
 
 See https://api.slack.com/events.
+
+
+
+================================================
+FILE: integrations/TWILIO.md
+================================================
+# Twilio Integration
+
+You can use the Twilio integration to work with WhatsApp as well.
 
 
 
