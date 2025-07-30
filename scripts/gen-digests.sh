@@ -12,11 +12,11 @@ digest() {
 
     if [[ -r "${pre}" ]]; then
         tmp="digests/${kind}_"
-        uvx gitingest "${in}" --output "${tmp}" "$@"
+        uvx gitingest@0.1.5 "${in}" --output "${tmp}" "$@"
         cat "${pre}" "${tmp}" > "${out}"
         rm -f "${tmp}"
     else
-        uvx gitingest "${in}" --output "${out}" "$@"
+        uvx gitingest@0.1.5 "${in}" --output "${out}" "$@"
     fi
 }
 

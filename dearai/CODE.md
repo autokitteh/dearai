@@ -38,7 +38,7 @@ requests-toolbelt ~= 1.0
 tenacity ~= 9.0
 """
 
-IMPORTANT: Never manually add these packages into the project's requirements.txt, they will be already automatically installed by the AutoKitteh runtime. Avoid using different package versions than what is already explicitly specified above.
+**IMPORTANT**: Never add the above mentioned packages into the project's requirements.txt! These will be already automatically installed by the AutoKitteh runtime. Avoid using different package versions than what is already explicitly specified above.
 
 If the additional packages are required, they can be specified in a `requirements.txt` file.
 
@@ -59,18 +59,19 @@ githubcopilot
 gmail
 googlegemini
 height
-http
 hubspot
 jira
 linear
 postgres
-scheduler
 sheets
 slack
 sqlite3
 twilio
 zoom
 
+
+These are the ONLY integrations supported.
+NEVER specifiy any integration that does not appear above as an integration.
 
 ## Pitfalls
 

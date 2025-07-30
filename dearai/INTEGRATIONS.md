@@ -15,15 +15,16 @@ githubcopilot
 gmail
 googlegemini
 height
-http
 hubspot
 jira
 linear
 postgres
-scheduler
 sheets
 slack
 sqlite3
 twilio
 zoom
 
+
+These are the ONLY integrations supported.
+NEVER specifiy any integration that does not appear above as an integration.

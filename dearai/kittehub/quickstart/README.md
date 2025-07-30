@@ -1,5 +1,5 @@
 title: Quickstart
 description: Sample for quickstart
-integrations: ["http"]
+integrations: []
 categories: ["Samples"]
 tags: ["essential"]

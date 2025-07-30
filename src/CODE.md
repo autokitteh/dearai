@@ -8,7 +8,7 @@ The code is Python 3 code.
 By default, AutoKitteh makes available the following packages for the program:
 {{ macros.quote("_data/requirements.txt") }}
 
-IMPORTANT: Never manually add these packages into the project's requirements.txt, they will be already automatically installed by the AutoKitteh runtime. Avoid using different package versions than what is already explicitly specified above.
+**IMPORTANT**: Never add the above mentioned packages into the project's requirements.txt! These will be already automatically installed by the AutoKitteh runtime. Avoid using different package versions than what is already explicitly specified above.
 
 If the additional packages are required, they can be specified in a `requirements.txt` file.
 

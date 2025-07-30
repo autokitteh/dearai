@@ -8,12 +8,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go.autokitteh.dev/autokitteh/internal/backend/db"
-	"go.autokitteh.dev/autokitteh/internal/backend/temporalclient"
-	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 	"go.temporal.io/sdk/client"
 	"go.uber.org/zap"
 	"gotest.tools/v3/assert"
+
+	"go.autokitteh.dev/autokitteh/internal/backend/db"
+	"go.autokitteh.dev/autokitteh/internal/backend/temporalclient"
+	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
 func TestAvailableSlots(t *testing.T) {
@@ -151,9 +152,9 @@ func (m *mockDB) GetWorkflowExecutionRequests(ctx context.Context, workerID stri
 
 	return m.dbResult()
 }
-func (m *mockDB) UpdateRequestStatus(ctx context.Context, workflowID string, status string) error {
+func (m *mockDB) UpdateWorkflowExecutionRequestStatus(ctx context.Context, workflowID string, status string) (bool, error) {
 	// Mock implementation, just return nil to simulate success
-	return nil
+	return true, nil
 }
 
 func getExecutor(

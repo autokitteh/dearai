@@ -14,12 +14,10 @@ githubcopilot
 gmail
 googlegemini
 height
-http
 hubspot
 jira
 linear
 postgres
-scheduler
 sheets
 slack
 sqlite3

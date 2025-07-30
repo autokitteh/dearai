@@ -2237,7 +2237,7 @@ FILE: data_pipeline/README.md
 ================================================
 title: ETL Pipeline From S3 to SQLite
 description: Processes GPX files from S3 and inserts them into a SQLite database, creating a data pipeline from cloud to structured data
-integrations: ["aws", "http", "sqlite3"]
+integrations: ["aws", "sqlite3"]
 categories: ["DevOps"]
 tags: ["data_pipeline", "webhook_handling", "activity", "data_processing", "essential"]
 
@@ -5354,7 +5354,7 @@ FILE: devops/sftp/README.md
 ================================================
 title: SFTP demo
 description: Trigger a file transfer from SFTP to HTTP on webhook call
-integrations: ["http"]
+integrations: []
 categories: ["DevOps"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -5878,7 +5878,7 @@ FILE: github_marketplace_to_slack/README.md
 ================================================
 title: GitHub Marketplace to Slack
 description: Forward GitHub Marketplace notifications to Slack
-integrations: ["github", "http", "slack"]
+integrations: ["github", "slack"]
 categories: ["CRM"]
 tags: ["webhook_handling", "notifications", "data_processing"]
 
@@ -7255,7 +7255,7 @@ FILE: quickstart/README.md
 ================================================
 title: Quickstart
 description: Sample for quickstart
-integrations: ["http"]
+integrations: []
 categories: ["Samples"]
 tags: ["essential"]
 
@@ -9509,7 +9509,7 @@ FILE: samples/http/README.md
 ================================================
 title: HTTP sample
 description: Samples using HTTP requests and webhooks
-integrations: ["http"]
+integrations: []
 categories: ["Samples"]
 
 
@@ -10088,8 +10088,9 @@ FILE: samples/scheduler/README.md
 ================================================
 title: Scheduler sample
 description: Samples using cron scheduler for workflows
-integrations: ["scheduler"]
+integrations: []
 categories: ["Samples"]
+tags: ["scheduler"]
 
 
 
@@ -11893,7 +11894,7 @@ FILE: webhook_to_jira/README.md
 ================================================
 title: Create Jira ticket from webhook data
 description: Create Jira issues automatically from HTTP webhooks
-integrations: ["jira", "http"]
+integrations: ["jira"]
 categories: ["DevOps"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 

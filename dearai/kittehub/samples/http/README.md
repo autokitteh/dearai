@@ -1,4 +1,4 @@
 title: HTTP sample
 description: Samples using HTTP requests and webhooks
-integrations: ["http"]
+integrations: []
 categories: ["Samples"]
