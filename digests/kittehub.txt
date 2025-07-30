@@ -319,7 +319,7 @@ FILE: ai_agents/langgraph_bot/README.md
 ================================================
 title: LangGraph Bot with Tavily, and Google Sheets
 description: Slack bot built with LangGraph and powered by Gemini LLM that can search information and update Google Sheets
-integrations: ["slack", "sheets"]
+integrations: ["slack", "googlesheets"]
 categories: ["AI", "Productivity"]
 tags: ["user_interactions", "notifications", "webhook_handling", "data_processing"]
 
@@ -984,7 +984,7 @@ FILE: ai_chat_assistant/README.md
 ================================================
 title: AI chat assistant
 description: A Slack-based automation assistant that leverages ChatGPT to manage and respond to messages by integrating with GitHub and Google Sheets.
-integrations: ["chatgpt", "github", "sheets", "slack"]
+integrations: ["chatgpt", "github", "googlesheets", "slack"]
 categories: ["AI"]
 tags: ["subscribe", "next_event", "event_loops", "long_running", "interactive_workflows", "essential"]
 
@@ -2915,7 +2915,7 @@ FILE: devops/purrr/README.md
 ================================================
 title: Pull Request Review Reminder (Purrr)
 description: Streamline code reviews and cut down turnaround time to merge pull requests
-integrations: ["github", "sheets", "slack"]
+integrations: ["github", "googlesheets", "slack"]
 categories: ["DevOps"]
 tags: ["event_loops", "long_running", "subscribe", "unsubscribe", "next_event", "event_filtering", "essential"]
 
@@ -5239,7 +5239,7 @@ FILE: devops/reviewkitteh/README.md
 ================================================
 title: ReviewKitteh
 description: Monitor a GitHub PR in Slack until it's closed
-integrations: ["github", "sheets", "slack"]
+integrations: ["github", "googlesheets", "slack"]
 categories: ["DevOps"]
 tags: ["webhook_handling", "long_running", "monitoring", "notifications", "data_processing"]
 
@@ -5461,7 +5461,7 @@ FILE: discord_to_spreadsheet/README.md
 ================================================
 title: Discord to Spreadsheet Workflow
 description: Log Discord messages to a Google Sheets document automatically
-integrations: ["discord", "sheets"]
+integrations: ["discord", "googlesheets"]
 categories: ["Productivity"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -5991,7 +5991,7 @@ FILE: google_cal_to_asana/README.md
 ================================================
 title: Google Calendar To Asana
 description: Creates Asana tasks based on Google Calendar events
-integrations: ["calendar", "asana"]
+integrations: ["googlecalendar", "asana"]
 categories: ["Productivity"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -6084,7 +6084,7 @@ FILE: google_forms_to_jira/README.md
 ================================================
 title: Create Jira ticket from Google form
 description: Create and update Jira tickets automatically from Google Forms responses
-integrations: ["forms", "jira"]
+integrations: ["googleforms", "jira"]
 categories: ["DevOps"]
 tags: ["webhook_handling", "data_processing", "state_management", "notifications"]
 
@@ -7075,7 +7075,7 @@ FILE: jira_google_calendar/assignee_from_schedule/README.md
 ================================================
 title: Jira assignee from Google Calendar
 description: Set assignee in Jira ticket to the person currently on-call
-integrations: ["jira", "calendar"]
+integrations: ["jira", "googlecalendar"]
 categories: ["DevOps"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -7168,7 +7168,7 @@ FILE: jira_google_calendar/deadline_to_event/README.md
 ================================================
 title: Create calendar due date event for Jira ticket
 description: When a new Jira issue is created, the workflow automatically generates a Google Calendar event with a deadline
-integrations: ["calendar", "jira"]
+integrations: ["googlecalendar", "jira"]
 categories: ["DevOps"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -7304,7 +7304,7 @@ FILE: reliability/aws_health_monitor/README.md
 ================================================
 title: AWS Health monitor
 description: Announce AWS Health events in Slack channels, based on resource ownership data in a Google Sheet
-integrations: ["aws", "slack", "sheets"]
+integrations: ["aws", "slack", "googlesheets"]
 categories: ["Reliability"]
 tags: ["activity", "scheduled_tasks", "monitoring", "notifications", "data_processing", "essential"]
 
@@ -7988,7 +7988,7 @@ FILE: room_reservation/README.md
 ================================================
 title: Ad-hoc room reservation via Slack
 description: Ad-hoc room reservation via Slack slash commands
-integrations: ["slack", "calendar"]
+integrations: ["slack", "googlecalendar"]
 categories: ["Productivity"]
 tags: ["user_interactions", "webhook_handling", "data_processing", "error_handling"]
 
@@ -8676,7 +8676,7 @@ FILE: samples/google/calendar/README.md
 ================================================
 title: Google Calendar sample
 description: Samples using Google Calendar APIs
-integrations: ["calendar"]
+integrations: ["googlecalendar"]
 categories: ["Samples"]
 
 
@@ -8783,7 +8783,7 @@ FILE: samples/google/drive/README.md
 ================================================
 title: Google Drive sample
 description: Samples using Google Drive APIs
-integrations: ["drive"]
+integrations: ["googledrive"]
 categories: ["Samples"]
 
 
@@ -8880,7 +8880,7 @@ FILE: samples/google/forms/README.md
 ================================================
 title: Google Forms sample
 description: Samples using Google Forms APIs
-integrations: ["forms"]
+integrations: ["googleforms"]
 categories: ["Samples"]
 
 
@@ -9362,7 +9362,7 @@ FILE: samples/google/sheets/README.md
 ================================================
 title: Google Sheets sample
 description: Samples using Google Sheets APIs
-integrations: ["sheets"]
+integrations: ["googlesheets"]
 categories: ["Samples"]
 
 
@@ -10669,7 +10669,7 @@ FILE: sheets_to_soap/README.md
 ================================================
 title: Google Sheets to SOAP Calculator
 description: Reads numeric values from Google Sheets and sends them to a SOAP-based calculator API
-integrations: ["sheets"]
+integrations: ["googlesheets"]
 categories: ["Productivity", "DevOps"]
 tags: ["webhook_handling", "data_processing", "notifications"]
 
@@ -10864,7 +10864,7 @@ FILE: slack_support/README.md
 ================================================
 title: AI-driven Slack bot for assistance requests
 description: Automatically route help requests to the right expert based on topic analysis and expertise matching
-integrations: ["slack", "sheets", "googlegemini"]
+integrations: ["slack", "googlesheets", "googlegemini"]
 categories: ["AI", "Productivity"]
 tags: ["next_event", "subscribe", "interactive_workflows", "user_interactions", "event_loops", "timeout_handling", "notifications", "state_management"]
 

@@ -1,4 +1,4 @@
 title: Google Sheets sample
 description: Samples using Google Sheets APIs
-integrations: ["sheets"]
+integrations: ["googlesheets"]
 categories: ["Samples"]

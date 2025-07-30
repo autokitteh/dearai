@@ -3,7 +3,7 @@ FILE: ai_chat_assistant/README.md
 ================================================
 title: AI chat assistant
 description: A Slack-based automation assistant that leverages ChatGPT to manage and respond to messages by integrating with GitHub and Google Sheets.
-integrations: ["chatgpt", "github", "sheets", "slack"]
+integrations: ["chatgpt", "github", "googlesheets", "slack"]
 categories: ["AI"]
 tags: ["subscribe", "next_event", "event_loops", "long_running", "interactive_workflows", "essential"]
 
@@ -676,7 +676,7 @@ FILE: devops/purrr/README.md
 ================================================
 title: Pull Request Review Reminder (Purrr)
 description: Streamline code reviews and cut down turnaround time to merge pull requests
-integrations: ["github", "sheets", "slack"]
+integrations: ["github", "googlesheets", "slack"]
 categories: ["DevOps"]
 tags: ["event_loops", "long_running", "subscribe", "unsubscribe", "next_event", "event_filtering", "essential"]
 
@@ -3419,7 +3419,7 @@ FILE: reliability/aws_health_monitor/README.md
 ================================================
 title: AWS Health monitor
 description: Announce AWS Health events in Slack channels, based on resource ownership data in a Google Sheet
-integrations: ["aws", "slack", "sheets"]
+integrations: ["aws", "slack", "googlesheets"]
 categories: ["Reliability"]
 tags: ["activity", "scheduled_tasks", "monitoring", "notifications", "data_processing", "essential"]
 
