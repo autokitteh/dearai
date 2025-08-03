@@ -16,3 +16,7 @@ Common use case for `history_id`:
 1. Your app receives a Pub/Sub notification with history_id: 12345
 2. You can call Gmail's users.history.list() API with startHistoryId: 12345 to get all changes since that point
 3. This gives you exactly what changed (new messages, deletions, label updates) without having to scan the entire mailbox
+
+## Available Events
+
+- mailbox_change
