@@ -1,5 +1,5 @@
 ## Available Events
 
-- event created
-- event updated
-- event deleted
+- event_created
+- event_updated
+- event_deleted
