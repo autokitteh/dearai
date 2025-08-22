@@ -11,7 +11,7 @@ import ReactPlayer from 'react-player'
 AutoKitteh [projects](/glossary/project) must have a working directory, which contains:
 
 - The project's YAML manifest file
-- Source code in one or more `*.star` files
+- Source code in one or more `*.py` files
 
 To set the project's working directory:
 
