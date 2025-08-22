@@ -625,5 +625,5 @@ def _write():
 - For logging, use `print` functions. Currently the `logging` package is not supported.
 - Try to add meaningful messages using `print`s. These will appear in execution logs and help the user understand what is going on.
 - NEVER "invent" new AutoKitteh functions that are not explicitly exist in AutoKitteh's SDK (pyak).
-- AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
+- AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely necessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
