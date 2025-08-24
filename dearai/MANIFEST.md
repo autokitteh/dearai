@@ -17,7 +17,8 @@ The manifest is defined according to this schema:
     "Connection": {
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\w+$"
         },
         "integration": {
           "type": "string"
@@ -54,7 +55,8 @@ The manifest is defined according to this schema:
     "Project": {
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\w+$"
         },
         "connections": {
           "items": {
@@ -81,7 +83,8 @@ The manifest is defined according to this schema:
     "Trigger": {
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\w+$"
         },
         "event_type": {
           "type": "string"
@@ -121,7 +124,8 @@ The manifest is defined according to this schema:
     "Var": {
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\w+$"
         },
         "description": {
           "type": "string"

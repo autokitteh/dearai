@@ -1,3 +1,5 @@
+
+
 # Code
 
 An AutoKitteh project contains configuration (as described by a manifest) and code.
@@ -63,6 +65,7 @@ linear
 slack
 twilio
 zoom
+
 
 These are the ONLY integrations supported.
 NEVER specifiy any integration that does not appear above as an integration.
@@ -244,11 +247,9 @@ The event contains the `session_id` for the session and the event payload in its
 Each integration has a different event payload format. See details about each integration format in the `integrations/` folder.
 
 ---
-
 sidebar_position: 1
 description: Programmatic event handling
 title: Subscription
-
 ---
 
 # Programmatic Event Handling
@@ -301,32 +302,32 @@ condition. For example:
 
 ```js
 // Either 'issue_created' or 'issue_updated' events
-event_type == "issue_created" || event_type == "issue_updated";
+event_type == 'issue_created' || event_type == 'issue_updated'
 
 // Any issue-related events (e.g. issue_created / issue_updated),
 // but not other entities (e.g. page_created / page_updated)
-event_type.startsWith("issue_");
+event_type.startsWith('issue_')
 
 // Any event that relates to a created entity (e.g. issue_created,
 // page_created), but not other categories (e.g. issue_updated)
-event_type.endsWith("_created");
+event_type.endsWith('_created')
 
 // More sophisticated string checks
-event_type.contains("substring");
-event_type.matches("regular expression");
+event_type.contains('substring')
+event_type.matches('regular expression')
 ```
 
 In addition to event types, filters can also check event payloads. For
 example:
 
 ```js
-data.method in ["GET", "HEAD"] && data.url.path.endsWith("/meow");
+data.method in ['GET', 'HEAD'] && data.url.path.endsWith('/meow')
 
-size(data.collection_value) < 5 || size(data.string_value) > 10;
+size(data.collection_value) < 5 || size(data.string_value) > 10
 
-data.list_value[0].bar == "bar value of first element in foo list";
+data.list_value[0].bar == 'bar value of first element in foo list'
 
-data.dictionary_value["key"] != "value";
+data.dictionary_value['key'] != 'value'
 ```
 
 :::tip
@@ -455,7 +456,9 @@ def on_trigger(_):
 See also this sample project:
 https://github.com/autokitteh/kittehub/tree/main/samples/runtime_events
 
+
 # TODO
+
 
 ## Tour of AutoKitteh by Projects
 
@@ -617,13 +620,13 @@ def _write():
     print(f"Updated range: {resp['updatedRange']!r}")
 ```
 
+
 ## General Guidelines
 
 - Each session is running isolated from other sessions:
   - You cannot, for example, store state in memory and expect another session to access it.
   - Environment variables are not shared among different sessions as well.
 - For logging, use `print` functions. Currently the `logging` package is not supported.
-- Try to add meaningful messages using `print`s. These will appear in execution logs and help the user understand what is going on.
 - NEVER "invent" new AutoKitteh functions that are not explicitly exist in AutoKitteh's SDK (pyak).
-- AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely necessary for the user to understand it.
+- AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
