@@ -257,6 +257,10 @@ Directory structure:
     │   │   ├── autokitteh.yaml
     │   │   ├── message.json
     │   │   └── program.py
+    │   ├── sync_webhook/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   └── program.py
     │   └── twilio/
     │       ├── README.md
     │       ├── autokitteh.yaml
@@ -313,7 +317,11 @@ Directory structure:
     │   ├── README.md
     │   ├── autokitteh.yaml
     │   └── program.py
-    └── whatsapp_chatbot/
+    ├── whatsapp_chatbot/
+    │   ├── README.md
+    │   ├── autokitteh.yaml
+    │   └── program.py
+    └── youtube_upload_notif/
         ├── README.md
         ├── autokitteh.yaml
         └── program.py
@@ -10771,6 +10779,59 @@ def on_slack_interaction(event):
 
 
 ================================================
+FILE: samples/sync_webhook/README.md
+================================================
+title: Sync Webhook sample
+description: Sample demonstrating synchronous webhook handling with multiple triggers
+integrations: []
+categories: ["Samples"]
+tags: ["webhook", "sync", "subscribe", "next_event", "http_outcome", "outcome", "essential"]
+
+
+
+================================================
+FILE: samples/sync_webhook/autokitteh.yaml
+================================================
+version: v1
+
+project:
+  name: sync_webhook
+
+  triggers:
+    - name: first
+      type: webhook
+      call: program.py:on_first
+      is_sync: true
+
+    - name: second
+      type: webhook
+      # No call specified, this is just used to allocate a webhook URL.
+      # The script in program.py will just call `next_event` on this
+      # to detect that it's triggered.
+
+
+
+================================================
+FILE: samples/sync_webhook/program.py
+================================================
+"""A simple workflow that is triggered by a webhook."""
+
+from autokitteh import http_outcome, next_event, subscribe
+
+
+def on_first(_):
+    print("First webhook triggered!")
+
+    s = subscribe("second")
+    e = next_event(s)
+
+    print("Second webhook triggered!")
+
+    http_outcome(status_code=200, body=e.body.text)
+
+
+
+================================================
 FILE: samples/twilio/README.md
 ================================================
 title: Twilio sample
@@ -12221,15 +12282,15 @@ FILE: whatsapp_chatbot/program.py
 
 import os
 
-import autokitteh
-from autokitteh.openai import openai_client
-from autokitteh.twilio import twilio_client
 from tenacity import retry
 from tenacity import retry_if_exception
 from tenacity import stop_after_attempt
 from tenacity import wait_exponential
-
 from twilio.base.exceptions import TwilioRestException
+
+import autokitteh
+from autokitteh.openai import openai_client
+from autokitteh.twilio import twilio_client
 
 
 twilio = twilio_client("twilio_conn")
@@ -12346,5 +12407,201 @@ def clear_conversation_history(sender_number):
     if sender_number in CHAT_HIST:
         del CHAT_HIST[sender_number]
         print(f"Cleared conversation history for {sender_number}")
+
+
+
+================================================
+FILE: youtube_upload_notif/README.md
+================================================
+title: YouTube Video Notifier
+description: Polls YouTube channels for new videos and sends Slack notifications
+integrations: ["youtube", "slack"]
+categories: ["Productivity"]
+tags: ["Polling", "notifications", "memory vars"]
+
+
+
+================================================
+FILE: youtube_upload_notif/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that polls for new YouTube videos from a specific channel.
+
+version: v1
+
+project:
+  name: youtube_video_poller
+
+  connections:
+    - name: youtube_conn
+      integration: youtube
+
+    - name: slack_conn
+      integration: slack
+
+  triggers:
+    - name: poll_for_new_videos
+      type: schedule
+      cron_expression: "*/5 * * * *"
+      call: program.py:poll_for_new_videos
+
+  vars:
+    - name: YOUTUBE_CHANNEL_NAME
+      value:
+    - name: SLACK_CHANNEL
+      value:
+
+
+
+================================================
+FILE: youtube_upload_notif/program.py
+================================================
+"""Poll for new YouTube videos from a specific channel and send to slack."""
+
+from datetime import datetime, UTC
+import os
+
+import autokitteh
+from autokitteh.google import youtube_client
+from autokitteh.openai import openai_client
+from autokitteh.slack import slack_client
+
+
+youtube = youtube_client("youtube_conn")
+slack = slack_client("slack_conn")
+chatgpt = openai_client("chatgpt_conn")
+
+
+YT_CHANNEL_NAME = os.getenv("YOUTUBE_CHANNEL_NAME")
+SLACK_CHANNEL = os.getenv("SLACK_CHANNEL")
+MAX_RESULTS = 5  # Number of videos to check.
+
+
+def poll_for_new_videos(event):
+    """Poll for new videos from the configured YouTube channel.
+
+    This function is triggered by a scheduled cron job.
+    It checks for new videos and send to slack info about any new ones found.
+    """
+    channel_id = get_channel_id()
+    if channel_id is None:
+        print("no channel found")
+        return
+
+    search_response = (
+        youtube.search()
+        .list(
+            part="snippet",
+            channelId=channel_id,
+            order="date",
+            type="video",
+            maxResults=MAX_RESULTS,
+        )
+        .execute()
+    )
+
+    videos = search_response.get("items", [])
+
+    if not videos:
+        print("No videos found for this channel")
+        return
+
+    # Get the last checked timestamp.
+    last_checked = autokitteh.get_value("last_checked_timestamp")
+
+    if last_checked:
+        last_checked_dt = datetime.fromisoformat(last_checked)
+    else:
+        current_time = datetime.now(UTC).isoformat()
+        autokitteh.set_value("last_checked_timestamp", current_time)
+        print("Will be notified about new videos.")
+        return
+
+    new_videos = []
+    latest_timestamp = last_checked
+
+    for video in videos:
+        video_published = video["snippet"]["publishedAt"]
+        video_published_dt = datetime.fromisoformat(
+            video_published.replace("Z", "+00:00")
+        )
+
+        if video_published_dt > last_checked_dt:
+            new_videos.append(video)
+
+            if video_published > latest_timestamp:
+                latest_timestamp = video_published
+
+    if new_videos:
+        for video in new_videos:
+            snippet = video["snippet"]
+            video_id = video["id"]["videoId"]
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+            message = create_slack_message(snippet, video_url)
+
+            slack.chat_postMessage(
+                channel=SLACK_CHANNEL,
+                text=f"🆕 New video from {YT_CHANNEL_NAME}!",
+                blocks=message,
+            )
+
+        autokitteh.set_value("last_checked_timestamp", latest_timestamp)
+
+
+def get_channel_id():
+    resp = (
+        youtube.search()
+        .list(part="snippet", q=YT_CHANNEL_NAME, type="channel", maxResults=1)
+        .execute()
+    )
+
+    items = resp.get("items") or []
+    return items[0]["snippet"]["channelId"] if items else None
+
+
+def create_slack_message(snippet, video_url):
+    """Create a formatted Slack message block for a new video."""
+    title = snippet["title"]
+    description = snippet["description"]
+    published_at = snippet["publishedAt"]
+    thumbnail_url = snippet.get("thumbnails", {}).get("medium", {}).get("url", "")
+
+    short_desc = description[:300] + "..." if len(description) > 300 else description
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": "🎬 New YouTube Video!"},
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*📺 Channel:*\n{YT_CHANNEL_NAME}"},
+                {"type": "mrkdwn", "text": f"*📅 Published:*\n{published_at}"},
+            ],
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*{title}*\n\n{short_desc}"},
+            "accessory": {
+                "type": "button",
+                "text": {"type": "plain_text", "text": "▶️ Watch Video"},
+                "url": video_url,
+                "action_id": "watch_video",
+            },
+        },
+    ]
+
+    if thumbnail_url:
+        blocks.append(
+            {
+                "type": "image",
+                "image_url": thumbnail_url,
+                "alt_text": f"Thumbnail for {title}",
+            }
+        )
+
+    return blocks
 
 

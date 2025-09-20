@@ -232,6 +232,18 @@ def force_close(server):
     os._exit(1)
 
 
+MAX_SIZE_OF_REQUEST = 1 * 1024 * 1024
+
+
+def format_size(size):
+    if size < 1024:
+        return f"{size} B"
+    elif size < 1024 * 1024:
+        return f"{size // 1024} KB"
+    else:
+        return f"{size // (1024 * 1024)} MB"
+
+
 class Runner(pb.runner_rpc.RunnerService):
     def __init__(
         self, id, worker, code_dir, server, start_timeout=DEFAULT_START_TIMEOUT
@@ -333,6 +345,8 @@ class Runner(pb.runner_rpc.RunnerService):
         autokitteh.start = self.syscalls.ak_start
         autokitteh.subscribe = self.syscalls.ak_subscribe
         autokitteh.unsubscribe = self.syscalls.ak_unsubscribe
+        autokitteh.outcome = self.syscalls.ak_outcome
+        autokitteh.http_outcome = self.syscalls.ak_http_outcome
 
         # Not ak, but patching print as well
         builtins.print = self.ak_print
@@ -351,10 +365,20 @@ class Runner(pb.runner_rpc.RunnerService):
         self.syscalls = SysCalls(self.id, self.worker, log)
         mod_name, fn_name = parse_entry_point(request.entry_point)
 
+        inputs = json.loads(request.event.data)
+
+        fix_http_body(inputs)
+
+        event = Event(
+            data=AttrDict(inputs.get("data", {})),
+            session_id=inputs.get("session_id"),
+        )
+
         # Must be before we load user code
         self.patch_ak_funcs()
 
-        ak_call = AKCall(self, self.code_dir)
+        ak_call = AKCall(self, self.code_dir) if request.is_durable else None
+
         try:
             mod = loader.load_code(self.code_dir, ak_call, mod_name)
         except Exception as err:
@@ -368,8 +392,6 @@ class Runner(pb.runner_rpc.RunnerService):
                 f"can't load {mod_name} from {self.code_dir} - {err_text}",
             )
 
-        ak_call.set_module(mod)
-
         fn = getattr(mod, fn_name, None)
         if not callable(fn):
             Thread(
@@ -380,29 +402,23 @@ class Runner(pb.runner_rpc.RunnerService):
                 f"function {fn_name!r} not found",
             )
 
-        inputs = json.loads(request.event.data)
+        if ak_call:
+            ak_call.set_module(mod)
 
-        fix_http_body(inputs)
+            # TODO(ENG-1893): Disabled temporarily due to issues with HubSpot client - need to investigate.
+            # # Warn on I/O outside an activity. Should come after importing the user module
+            # hook = make_audit_hook(ak_call, self.code_dir)
+            # sys.addaudithook(hook)
 
-        event = Event(
-            data=AttrDict(inputs.get("data", {})),
-            session_id=inputs.get("session_id"),
-        )
+            # Top-level handler marked as activity.
+            if activity_marker(fn):
+                orig_fn = fn
 
-        # TODO(ENG-1893): Disabled temporarily due to issues with HubSpot client - need to investigate.
-        # # Warn on I/O outside an activity. Should come after importing the user module
-        # hook = make_audit_hook(ak_call, self.code_dir)
-        # sys.addaudithook(hook)
+                def handler(event):
+                    return ak_call(orig_fn, event)
 
-        # Top-level handler marked as activity.
-        if activity_marker(fn):
-            orig_fn = fn
-
-            def handler(event):
-                return ak_call(orig_fn, event)
-
-            update_wrapper(handler, orig_fn)
-            fn = handler
+                update_wrapper(handler, orig_fn)
+                fn = handler
 
         self.executor.submit(self.on_event, fn, event)
 
@@ -418,6 +434,16 @@ class Runner(pb.runner_rpc.RunnerService):
             data = pickle.dumps(result)
             req.result.custom.data = data
             req.result.custom.value.CopyFrom(values.safe_wrap(result.value))
+            size_of_request = req.ByteSize()
+            if size_of_request > MAX_SIZE_OF_REQUEST:
+                # reset the req.result and use error only
+                req = pb.handler.ExecuteReplyRequest(
+                    runner_id=self.id,
+                )
+                req.error = "response size too large"
+                print(
+                    f"response size {format_size(size_of_request)} is too large, max allowed is {format_size(MAX_SIZE_OF_REQUEST)}"
+                )
         except Exception as err:
             # Print so it'll get to session log
             msg = f"error processing result - {err!r}"
@@ -425,10 +451,20 @@ class Runner(pb.runner_rpc.RunnerService):
             print(self.result_error(err))
             req.error = msg
 
-        log.info("execute reply")
-        resp = self.worker.ExecuteReply(req)
-        if resp.error:
-            log.error("execute reply: %r", resp.error)
+        try:
+            log.info("execute reply")
+            resp = self.worker.ExecuteReply(req)
+            if resp.error:
+                log.error("execute reply: %r", resp.error)
+                # TODO: need to handle this case (ENG-2253)
+            return
+        except grpc.RpcError as err:
+            log.error("execute reply send error: %r", err)
+            # TODO: need to handle this case (ENG-2253)
+
+        # for now, if we got here, we need to kill self
+        # should handle better with ENG-2253
+        force_close(self.server)
 
     def Execute(self, request: pb.runner.ExecuteRequest, context: grpc.ServicerContext):
         with self.lock:
@@ -535,6 +571,11 @@ class Runner(pb.runner_rpc.RunnerService):
                 kwargs={k: values.safe_wrap(v) for k, v in kw.items()},
             ),
         )
+        req_size = req.ByteSize()
+        if req_size > MAX_SIZE_OF_REQUEST:
+            raise ActivityError(
+                f"Request payload size {format_size(req_size)} is larger than maximum supported ({format_size(MAX_SIZE_OF_REQUEST)})."
+            )
         log.info("activity: sending")
         resp = self.worker.Activity(req)
         if resp.error:

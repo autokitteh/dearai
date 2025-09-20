@@ -23,6 +23,7 @@ hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
 openai ~= 1.57
+pipedrive-python-lib ~= 1.2
 praw ~= 7.8
 pyairtable ~= 3.1
 PyGithub ~= 2.6
@@ -64,6 +65,7 @@ jira
 linear
 slack
 twilio
+youtube
 zoom
 
 
