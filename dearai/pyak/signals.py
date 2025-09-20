@@ -12,7 +12,9 @@ class Signal:
 def signal(session_id: str, name: str, payload: any=None) ->None:
     """Signal a session.
 
-    Cannot be used in an activity."""
+    Cannot be used in an activity.
+    Works only for durable sessions.
+    """
     ...
 
 
@@ -20,5 +22,7 @@ def next_signal(name: (str | list[str]), *, timeout: (timedelta | int |
     float)=None) ->(Signal | None):
     """Get the next signal.
 
-    Cannot be used in an activity."""
+    Cannot be used in an activity.
+    Works only for durable sessions.
+    """
     ...

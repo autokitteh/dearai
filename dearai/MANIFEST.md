@@ -40,7 +40,11 @@ The manifest is defined according to this schema:
     "Manifest": {
       "properties": {
         "version": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "v1",
+            "v2"
+          ]
         },
         "project": {
           "$ref": "#/$defs/Project"
@@ -91,6 +95,13 @@ The manifest is defined according to this schema:
         },
         "filter": {
           "type": "string"
+        },
+        "is_durable": {
+          "type": "boolean",
+          "description": "Is handling done as a durable session? Default: true for manifest v1, false for all others."
+        },
+        "is_sync": {
+          "type": "boolean"
         },
         "type": {
           "type": "string",

@@ -78,6 +78,7 @@ type pySvc struct {
 	exports   map[string]sdktypes.Value
 	fileName  string // main user code file name (entry point)
 	envVars   map[string]string
+	durable   bool
 
 	runner   *RunnerClient
 	runnerID string
@@ -124,8 +125,10 @@ func New(
 			return nil, errors.New("worker address is required for docker runner")
 		}
 		if err := configureDockerRunnerManager(l, DockerRuntimeConfig{
-			LogRunnerCode: cfg.LogRunnerCode,
-			LogBuildCode:  cfg.LogBuildCode,
+			LogRunnerCode:          cfg.LogRunnerCode,
+			LogBuildCode:           cfg.LogBuildCode,
+			MaxMemoryPerWorkflowMB: cfg.MaxMemoryPerWorkflowMB,
+			MaxCPUsPerWorkflow:     cfg.MaxCPUsPerWorkflow,
 			WorkerAddressProvider: func() string {
 				_, port, _ := net.SplitHostPort(getLocalAddr())
 				return fmt.Sprintf("%s:%s", cfg.WorkerAddress, port)
@@ -273,6 +276,7 @@ func (py *pySvc) Run(
 	mainPath string,
 	compiled map[string][]byte,
 	values map[string]sdktypes.Value,
+	durable bool,
 	cbs *sdkservices.RunCallbacks,
 ) (sdkservices.Run, error) {
 	ctx, runSpan := telemetry.T().Start(ctx, "pythonrt.Run")
@@ -290,6 +294,7 @@ func (py *pySvc) Run(
 	)
 
 	py.cbs = cbs
+	py.durable = durable
 
 	// Load environment defined by user in the `vars` section of the manifest,
 	// these are injected to the Python subprocess environment.
@@ -463,6 +468,7 @@ func (py *pySvc) startRequest(ctx context.Context, funcName string, eventData []
 		Event: &pbUserCode.Event{
 			Data: eventData,
 		},
+		IsDurable: py.durable,
 	}
 	if _, err := py.runner.Start(ctx, &req); err != nil {
 		// TODO: Handle traceback

@@ -4319,6 +4319,62 @@ def on_slack_interaction(event):
 
 
 ================================================
+FILE: samples/sync_webhook/README.md
+================================================
+title: Sync Webhook sample
+description: Sample demonstrating synchronous webhook handling with multiple triggers
+integrations: []
+categories: ["Samples"]
+tags: ["webhook", "sync", "subscribe", "next_event", "http_outcome", "outcome", "essential"]
+
+
+
+
+================================================
+FILE: samples/sync_webhook/autokitteh.yaml
+================================================
+version: v1
+
+project:
+  name: sync_webhook
+
+  triggers:
+    - name: first
+      type: webhook
+      call: program.py:on_first
+      is_sync: true
+
+    - name: second
+      type: webhook
+      # No call specified, this is just used to allocate a webhook URL.
+      # The script in program.py will just call `next_event` on this
+      # to detect that it's triggered.
+
+
+
+
+================================================
+FILE: samples/sync_webhook/program.py
+================================================
+"""A simple workflow that is triggered by a webhook."""
+
+from autokitteh import http_outcome, next_event, subscribe
+
+
+def on_first(_):
+    print("First webhook triggered!")
+
+    s = subscribe("second")
+    e = next_event(s)
+
+    print("Second webhook triggered!")
+
+    http_outcome(status_code=200, body=e.body.text)
+
+
+
+
+================================================
 FILE: task_chain/single_workflow/basic/README.md
 ================================================
 title: Fault tolerant workflow with manual Slack approvals

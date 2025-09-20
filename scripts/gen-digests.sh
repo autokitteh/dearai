@@ -24,6 +24,7 @@ rm -fR digests
 mkdir digests
 
 digest dearai digests/dearai.txt -e kittehub
+digest dearai digests/dearai-with-kittehub.txt
 digest dearai/pyak digests/pyak.txt
 digest dearai/integrations digests/integrations.txt
 digest dearai/kittehub digests/kittehub.txt

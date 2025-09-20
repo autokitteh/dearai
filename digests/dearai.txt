@@ -51,7 +51,9 @@ Directory structure:
         ├── microsoft.py
         ├── oauth2_session.py
         ├── openai.py
+        ├── outcomes.py
         ├── packages.py
+        ├── pipedrive.py
         ├── reddit.py
         ├── salesforce.py
         ├── signals.py
@@ -88,6 +90,7 @@ hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
 openai ~= 1.57
+pipedrive-python-lib ~= 1.2
 praw ~= 7.8
 pyairtable ~= 3.1
 PyGithub ~= 2.6
@@ -129,6 +132,7 @@ jira
 linear
 slack
 twilio
+youtube
 zoom
 
 
@@ -723,6 +727,7 @@ jira
 linear
 slack
 twilio
+youtube
 zoom
 
 
@@ -785,7 +790,11 @@ The manifest is defined according to this schema:
     "Manifest": {
       "properties": {
         "version": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "v1",
+            "v2"
+          ]
         },
         "project": {
           "$ref": "#/$defs/Project"
@@ -836,6 +845,13 @@ The manifest is defined according to this schema:
         },
         "filter": {
           "type": "string"
+        },
+        "is_durable": {
+          "type": "boolean",
+          "description": "Is handling done as a durable session? Default: true for manifest v1, false for all others."
+        },
+        "is_sync": {
+          "type": "boolean"
         },
         "type": {
           "type": "string",
@@ -1258,14 +1274,16 @@ from .activities import activity, inhibit_activities, register_no_activity
 from .attr_dict import AttrDict
 from .event import Event
 from .events import next_event, start, subscribe, unsubscribe
+from .outcomes import outcome, http_outcome
 from .signals import Signal, next_signal, signal
 from .errors import AutoKittehError
 from .store import add_values, del_value, get_value, list_values_keys, mutate_value, set_value, store
-__all__ = ['AttrDict', 'errors', 'start', 'AutoKittehError', 'activity',
-    'inhibit_activities', 'register_no_activity', 'Event', 'next_event',
-    'subscribe', 'unsubscribe', 'next_signal', 'signal', 'Signal',
-    'add_values', 'del_value', 'get_value', 'list_values_keys',
-    'mutate_value', 'set_value', 'store']
+__all__ = ['AttrDict', 'AutoKittehError', 'errors', 'http_outcome',
+    'outcome', 'start', 'activity', 'inhibit_activities',
+    'register_no_activity', 'Event', 'next_event', 'subscribe',
+    'unsubscribe', 'next_signal', 'signal', 'Signal', 'add_values',
+    'del_value', 'get_value', 'list_values_keys', 'mutate_value',
+    'set_value', 'store']
 
 
 
@@ -1517,6 +1535,8 @@ class AttrDict(dict):
     8080
     >>> config.debug
     True
+    >>> config["debug"]
+    True
     """
 
 
@@ -1705,14 +1725,16 @@ from .attr_dict import AttrDict
 def subscribe(source: str, filter: str='') ->str:
     """Subscribe to events on connection. Optional filter is a CEL expression.
 
-    Cannot be used in an activity."""
+    Works both in durable and nondurable sessions.
+    """
     ...
 
 
 def unsubscribe(subscription_id: str) ->None:
     """Unsubscribe from events.
 
-    Cannot be used in an activity."""
+    Works both in durable and nondurable sessions.
+    """
     ...
 
 
@@ -1723,7 +1745,7 @@ def next_event(subscription_id: (str | list[str]), *, timeout: (timedelta |
     If timeout is not None and there are no new events after timeout, this function will
     return None.
 
-    Cannot be used in an activity.
+    Works both in durable and nondurable sessions.
     """
     ...
 
@@ -1732,7 +1754,10 @@ def start(loc: str, data: (dict | None)=None, memo: (dict | None)=None,
     project: str='') ->str:
     """Start a new session.
 
-    Cannot be used in an activity."""
+    Works both in durable and nondurable sessions.
+
+    Sessions started this way will have the same durability setting as the parent session.
+    """
     ...
 
 
@@ -2237,6 +2262,43 @@ def openai_client(connection: str) ->OpenAI:
 
 
 ================================================
+FILE: pyak/outcomes.py
+================================================
+from typing import Any
+
+
+def outcome(v: Any) ->None:
+    """Log an outcome for the current session.
+
+    Works both in durable and nondurable sessions.
+
+    Args:
+        v: The outcome value. Can be any JSON-serializable value.
+
+    """
+    ...
+
+
+def http_outcome(status_code: int=200, body: Any=None, json: Any=None,
+    headers: dict[str, str]={}, more: bool=False) ->None:
+    """Respond to an HTTP request.
+
+    Works both in durable and nondurable sessions.
+
+    Args:
+        status_code: HTTP status code to return. Ignored if not the first response to a request.
+        body: body to return. If it is a dict or a list, it will be serialized as
+            JSON. If it is a string or bytes, it will be returned as-is.
+        json: JSON-serializable value to return as JSON. If specified, the Content-Type
+            header will be set to application/json. Cannot be used together with body.
+        headers: dict of headers to return.
+        more: If True, indicates that more responses will follow for this request.
+    """
+    ...
+
+
+
+================================================
 FILE: pyak/packages.py
 ================================================
 import re
@@ -2253,10 +2315,42 @@ def install(*packages):
     or a tuple of (package specifier, import name) in case the import name differs from
     the package name (e.g. Package `pillow` import imported as `PIL`).
 
+    Please refrain from using this function in production code, specify your dependencies in requirements.txt instead.
+
     Examples:
     >>> install('requests', 'numpy')
     >>> install('requests ~= 2.32', 'numpy == 2.0.0')
     >>> install(['pillow ~= 10.4', 'PIL'])
+    """
+    ...
+
+
+
+================================================
+FILE: pyak/pipedrive.py
+================================================
+"""Initialize an Anthropic client, based on an AutoKitteh connection."""
+import os
+from pipedrive.client import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def pipedrive_client(connection: str) ->Client:
+    """Initialize a Pipedrive client, based on an AutoKitteh connection.
+
+    API reference:
+        https://pypi.org/project/pipedrive-python-lib/
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Pipedrive API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
     """
     ...
 
@@ -2337,7 +2431,9 @@ class Signal:
 def signal(session_id: str, name: str, payload: any=None) ->None:
     """Signal a session.
 
-    Cannot be used in an activity."""
+    Cannot be used in an activity.
+    Works only for durable sessions.
+    """
     ...
 
 
@@ -2345,7 +2441,9 @@ def next_signal(name: (str | list[str]), *, timeout: (timedelta | int |
     float)=None) ->(Signal | None):
     """Get the next signal.
 
-    Cannot be used in an activity."""
+    Cannot be used in an activity.
+    Works only for durable sessions.
+    """
     ...
 
 
@@ -2415,6 +2513,8 @@ class Store(MutableMapping):
 
     Values must be pickleable, see
     https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+
+    Works both for durable and non-durable sessions.
     """
 
 
@@ -2431,6 +2531,8 @@ class Op(StrEnum):
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
     """Mutate a stored value.
+
+    Works both for durable and non-durable sessions.
 
     Args:
         key: Key of the value to mutate.
@@ -2449,6 +2551,8 @@ def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
 def get_value(key: str) ->Any:
     """Get a stored value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to retrieve.
 
@@ -2460,6 +2564,8 @@ def get_value(key: str) ->Any:
 
 def set_value(key: str, value: Any) ->None:
     """Set a stored value.
+
+    Works both for durable and non-durable sessions.
 
     Args:
         key: Key of the value to set.
@@ -2481,6 +2587,8 @@ def add_values(key: str, value: (int | float)) ->(int | float):
 
     If key is not found, its initial value is set to the provided value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to set.
         value: Value to add. Value must be serializable.
@@ -2494,6 +2602,8 @@ def add_values(key: str, value: (int | float)) ->(int | float):
 def del_value(key: str) ->None:
     """Delete a stored value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to set.
 
@@ -2505,6 +2615,8 @@ def del_value(key: str) ->None:
 
 def list_values_keys() ->list[str]:
     """List all stored keys.
+
+    Works both for durable and non-durable sessions.
 
     Returns:
         list[str]: Sorted list of all keys in the store.

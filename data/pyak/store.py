@@ -11,6 +11,8 @@ class Store(MutableMapping):
 
     Values must be pickleable, see
     https://docs.python.org/3/library/pickle.html#what-can-be-pickled-and-unpickled
+
+    Works both for durable and non-durable sessions.
     """
 
 
@@ -27,6 +29,8 @@ class Op(StrEnum):
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
     """Mutate a stored value.
+
+    Works both for durable and non-durable sessions.
 
     Args:
         key: Key of the value to mutate.
@@ -45,6 +49,8 @@ def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
 def get_value(key: str) ->Any:
     """Get a stored value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to retrieve.
 
@@ -56,6 +62,8 @@ def get_value(key: str) ->Any:
 
 def set_value(key: str, value: Any) ->None:
     """Set a stored value.
+
+    Works both for durable and non-durable sessions.
 
     Args:
         key: Key of the value to set.
@@ -77,6 +85,8 @@ def add_values(key: str, value: (int | float)) ->(int | float):
 
     If key is not found, its initial value is set to the provided value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to set.
         value: Value to add. Value must be serializable.
@@ -90,6 +100,8 @@ def add_values(key: str, value: (int | float)) ->(int | float):
 def del_value(key: str) ->None:
     """Delete a stored value.
 
+    Works both for durable and non-durable sessions.
+
     Args:
         key: Key of the value to set.
 
@@ -101,6 +113,8 @@ def del_value(key: str) ->None:
 
 def list_values_keys() ->list[str]:
     """List all stored keys.
+
+    Works both for durable and non-durable sessions.
 
     Returns:
         list[str]: Sorted list of all keys in the store.
