@@ -7,7 +7,8 @@ Dear AI, this digest is a summary of everything you need to know about AutoKitte
 - CODE.md explains how to write code for projects.
 - pyak/ contains the AutoKitteh Python SDK defintions.
 - integrations/ contains files with integration specific instructions.
-- samples/ contains important code samples.
+- kittehub/ contains the content of github.com/autokitteh/kittehub, which is a collection of autokitteh projects for examples.
+  if kittehub is not included in this file, download that repo if needed.
 
 With ❤️ and 🐈s, The Kittehs.
 
