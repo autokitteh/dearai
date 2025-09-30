@@ -7,7 +7,15 @@ It defines the PROJECT, CONNECTIONs, TRIGGERs, and VARIABLEs.
 
 A manifest is "applied" by the user (via CLI, or automatically by the Web Application). When it is applied, it creates or updates the project configuration accordingly.
 
-The manifest is defined according to this schema:
+A manifest has a version. It is always specified in the `version` field:
+
+- Version `v1` implies that all triggers are creating a durable session by default, unless overridden with "is_durable: false".
+- Version `v2` implies that all triggers are creating a nondurable session by default, unlesss overridden with "is_durable: true".
+
+When authoring new manifests always use `v2` for versioning.
+
+The manifest is defined according to the following schema:
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -248,34 +256,5 @@ project:
       event_type: issues
       connection: github_conn
       call: program.py:on_issue_event
-```
-
-```yaml
-# This YAML file is a declarative manifest that describes the setup
-# of an AutoKitteh project that logs messages from Discord to a
-# Google Sheets document.
-
-version: v1
-
-project:
-  name: discord_to_spreadsheet
-
-  vars:
-    - name: RANGE_NAME
-      value: Sheet1!A1
-    - name: SPREADSHEET_ID
-      value:
-
-  connections:
-    - name: discord_conn
-      integration: discord
-    - name: googlesheets_conn
-      integration: googlesheets
-
-  triggers:
-    - name: on_discord_message
-      connection: discord_conn
-      event_type: message_create
-      call: program.py:on_discord_message
 ```
 

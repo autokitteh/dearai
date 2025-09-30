@@ -6,7 +6,7 @@ All code listings are in txtar format.
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: minimal
@@ -54,7 +54,7 @@ def on_trigger(_):
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: webhook_to_slack
