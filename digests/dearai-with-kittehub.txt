@@ -364,6 +364,7 @@ Directory structure:
         ├── attr_dict.py
         ├── auth0.py
         ├── aws.py
+        ├── azurebot.py
         ├── connections.py
         ├── discord.py
         ├── errors.py
@@ -376,11 +377,13 @@ Directory structure:
         ├── kubernetes.py
         ├── linear.py
         ├── microsoft.py
+        ├── notion.py
         ├── oauth2_session.py
         ├── openai.py
         ├── outcomes.py
         ├── packages.py
         ├── pipedrive.py
+        ├── py.typed
         ├── reddit.py
         ├── salesforce.py
         ├── signals.py
@@ -416,6 +419,7 @@ gspread ~= 6.2
 hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
+notion_client ~= 2.0
 openai ~= 1.57
 pipedrive-python-lib ~= 1.2
 praw ~= 7.8
@@ -470,7 +474,7 @@ NEVER specifiy any integration that does not appear above as an integration.
 
 ## Function Return Value Must Be Pickleable
 
-We use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
+In durable mode, we use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
 
 - Open file handlers (when open returns)
 - lambdas
@@ -498,7 +502,7 @@ NOTE: You can use copyreg.pickle in order to support more types.
 
 ## Function Timeout
 
-If a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
+In durable mode, if a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
 
 Say you have the following code:
 
@@ -853,6 +857,52 @@ See also this sample project:
 https://github.com/autokitteh/kittehub/tree/main/samples/runtime_events
 
 
+## Waiting for events in programs
+
+In some cases, especially in human-in-the-loop scenarios, a user might want to wait for an event to happen from an execution of another session that started earlier. For that you should use the `autokitteh.next_event`, `autokitteh.subscribe` and `autokitteh.unsubscribe` functions in `pyak`.
+
+### Example
+
+In this example, we trigger a webhook that will wait for another webhook to trigger. Once the second webhook is triggered, the session will end.
+
+manifest.yaml:
+
+```yaml
+version: v2
+
+project:
+  name: sync_webhook
+
+  triggers:
+    - name: first
+      type: webhook
+      call: program.py:on_first
+      is_sync: true
+
+    - name: second
+      type: webhook
+      # IMPORTANT: No call specified, this is just used to allocate a webhook URL.
+      # The script in program.py will just call `next_event` on this
+      # to detect that it's triggered.
+```
+
+program.py:
+
+```py
+from autokitteh import http_outcome, next_event, subscribe
+
+
+def on_first(_):
+    print("First webhook triggered!")
+
+    s = subscribe("second")
+    e = next_event(s)
+
+    print("Second webhook triggered!")
+
+    http_outcome(status_code=200, body=e.body.text)
+```
+
 # TODO
 
 
@@ -864,7 +914,7 @@ All code listings are in txtar format.
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: minimal
@@ -912,7 +962,7 @@ def on_trigger(_):
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: webhook_to_slack
@@ -1027,6 +1077,7 @@ def _write():
 - AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
 - IMPORTANT: All object names (projects, connections, triggers, vars) must be words which adhere to the following regex: "^[a-zA-Z\_][\w]\*$". To emphasize, do not use dashes, spaces or any other special characters for these.
+- Some pyak (AutoKitteh's Python SDK for sessions) can be run only in durable sessions, some only in nondurable sessions and some can run in any mode. Check the function's docstring to know.
 
 
 
@@ -1085,7 +1136,15 @@ It defines the PROJECT, CONNECTIONs, TRIGGERs, and VARIABLEs.
 
 A manifest is "applied" by the user (via CLI, or automatically by the Web Application). When it is applied, it creates or updates the project configuration accordingly.
 
-The manifest is defined according to this schema:
+A manifest has a version. It is always specified in the `version` field:
+
+- Version `v1` implies that all triggers are creating a durable session by default, unless overridden with "is_durable: false".
+- Version `v2` implies that all triggers are creating a nondurable session by default, unlesss overridden with "is_durable: true".
+
+When authoring new manifests always use `v2` for versioning.
+
+The manifest is defined according to the following schema:
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1328,35 +1387,6 @@ project:
       call: program.py:on_issue_event
 ```
 
-```yaml
-# This YAML file is a declarative manifest that describes the setup
-# of an AutoKitteh project that logs messages from Discord to a
-# Google Sheets document.
-
-version: v1
-
-project:
-  name: discord_to_spreadsheet
-
-  vars:
-    - name: RANGE_NAME
-      value: Sheet1!A1
-    - name: SPREADSHEET_ID
-      value:
-
-  connections:
-    - name: discord_conn
-      integration: discord
-    - name: googlesheets_conn
-      integration: googlesheets
-
-  triggers:
-    - name: on_discord_message
-      connection: discord_conn
-      event_type: message_create
-      call: program.py:on_discord_message
-```
-
 
 
 
@@ -1394,7 +1424,7 @@ A TRIGGER can be of one of several types.
 - Schedule Trigger: runs on a schedule, defined by a cronspec.
 - Connection Trigger: A third party service sends an event, which when the trigger matches the event - it is invoked.
 
-A TRIGGER points to a function execute once is is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT.
+A TRIGGER can point to a function which is executed once it is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT. Note that specifying a call field is optional. Sometimes the user would just like call `next_event` on that trigger, and not trigger a new session when it's hit.
 
 A TRIGGER can include a FILTER defintion in its `filter` field. The FILTER is specified as a Google CEL expression. The CEL expression takes as input the EVENT payload, under the name `data`. The event type will be under the name `event_type`.
 
@@ -1405,6 +1435,10 @@ When writing CEL (Common Expression Language) expressions:
 - For membership testing, use `in` operator with `map()`: `"value" in list.map(item, item.field)`
 - For existence checks, use `exists()`: `list.exists(item, item.field == "value")`
 - Always verify CEL syntax against the official CEL specification before providing queries
+
+A trigger can specify if the session created due to it triggering should run as durable or not using the `is_durable` field in the manifest.
+
+For webhooks, a trigger can specify if the session created can return a response or not. For that to work, use "is_sync: true" in the manifest. The webhooks service will know in that case to wait for a session outcome and convert it into an HTTP response.
 
 ### Example: Webhook: Only match with POST JSON requests
 
@@ -1471,9 +1505,11 @@ call: program.py:weekly_user_growth
 
 SESSIONs are created as a result of a TRIGGER. A session runs the code in the project, according to the TRIGGER defintion. When a SESSION is being ran, a specific function in its code is being invoked. That function receives the EVENT that triggered it via its argument. If the trigger is a schedule trigger, that event is empty.
 
-IMPORTANT: Session invocation is asynchronic. The CONNECTION or TRIGGER invoking the session do not wait for the result of the session. For example, if a WEBHOOK trigger is invoked, it will ALWAYS return a 202 response, regardless what the session does.
+A sessions keeps an execution log. The execution log contains entries for the start and completion of a session. It also contains the session outcomes. A session outcome is a value generated by the session so external systems can consume as responses. One example for this is webhook responses: when a webhook trigger is specified with "is_sync: true", the service will wait for a session outcome and convert it into an HTTP response.
 
-NOTE: A Session is running under the hood as a Temporal Workflow. AutoKitteh knows how to break down the project code running in a session into separate Temporal Activities.
+IMPORTANT: Session invocation is asynchronic. The CONNECTION or TRIGGER invoking the session do not wait for the result of the session. For example, if a WEBHOOK trigger is invoked, and "is_sync: false" or not specified, it will ALWAYS return a 202 response, regardless what the session does.
+
+NOTE: A Session is running under the hood as a Temporal Workflow. In durable mode, AutoKitteh knows how to break down the project code running in a session into separate Temporal Activities. In non-durable mode the entire session is running as a single activity.
 
 
 
@@ -1482,8 +1518,8 @@ FILE: OVERVIEW.md
 ================================================
 # AutoKitteh Overview
 
-AutoKitteh is a "serverless" platform to build and deploy durable workflows.
-Durable workflows are long-running processes that automatically resume after interruptions.
+AutoKitteh is a "serverless" platform to build and deploy workflows.
+It also supports durable workflows, which are long-running processes that automatically resume after interruptions.
 
 Important Sites:
 
@@ -1492,7 +1528,9 @@ Important Sites:
 
 # Durability
 
-AutoKitteh projects run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
+By default, AutoKitteh is running workflows in a non-durable manner. If they fail due to infrastructure reasons, they will just retry.
+
+AutoKitteh projects can, when enabled, also run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
 
 When a project fails due to infrastructure issues—such as instance crashes or network problems—Temporal uses a REPLAY mechanism. It reruns the entire workflow from the beginning, but leverages the cached activity results to skip re-executing those parts, allowing them to return immediately.
 AutoKitteh analyzes the Abstract Syntax Tree (AST) of project code to intelligently determine which function calls should run as ACTIVITIES and which should not.
@@ -1590,6 +1628,7 @@ FILE: integrations/WEBHOOK.md
 
 - Webhooks are special case: There is no such thing as a "webhook connection". Webhooks are defined only as triggers.
 - The webhook endpoint is "https://api.autokitteh.cloud/webhooks/<trigger_id>".
+- A session created due to a webhook can specify what the caller will get as a response. For that to work, specify "is_sync: true" on the trigger. Then use the `http_outcome` function from pyak to specify the response.
 
 
 
@@ -14213,6 +14252,48 @@ def boto3_client(connection: str, service: str, region: str='', **kwargs):
 
 
 ================================================
+FILE: pyak/azurebot.py
+================================================
+"""Initialize a AzureBot client, based on an AutoKitteh connection."""
+from dataclasses import dataclass
+from typing import Any
+import os
+import requests
+from .connections import check_connection_name
+from .errors import ConnectionInitError, AuthenticationError
+from .activities import activity
+
+
+@dataclass
+class _Credentials:
+    app_id: str
+    app_password: str
+    tenant_id: str
+
+
+class AzureBotClient:
+
+    @activity
+    def send_conversation_activity(self, activity: dict, conversation_id: (
+        str | None), service_url: str='https://smba.trafficmanager.net/teams/'
+        ) ->Any:
+        """Send activity synchronously.
+
+        If this is sent as a reply to an event, use the service_url from that event.
+
+        Raises on non-2xx statuses.
+
+        Returns the HTTP response body as JSON.
+        """
+        ...
+
+
+def azurebot_client(connection: str) ->AzureBotClient:
+    ...
+
+
+
+================================================
 FILE: pyak/connections.py
 ================================================
 """AutoKitteh connection-related utilities."""
@@ -14304,6 +14385,10 @@ class AtlassianOAuthError(AutoKittehError):
     """API calls not supported by OAuth-based Atlassian connections."""
 
 
+class AuthenticationError(Exception):
+    """Authentication failed."""
+
+
 
 ================================================
 FILE: pyak/event.py
@@ -14331,7 +14416,7 @@ from .attr_dict import AttrDict
 
 
 def subscribe(source: str, filter: str='') ->str:
-    """Subscribe to events on connection. Optional filter is a CEL expression.
+    """Subscribe to events on connections or triggers. Optional filter is a CEL expression.
 
     Works both in durable and nondurable sessions.
     """
@@ -14818,6 +14903,37 @@ class OAuthTokenProvider(credentials.TokenCredential):
 
 
 ================================================
+FILE: pyak/notion.py
+================================================
+"""Initialize Notion client, based on an AutoKitteh connection."""
+import os
+from notion_client import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def notion_client(connection: str) ->Client:
+    """Initialize a Notion client, based on an AutoKitteh connection.
+
+    API reference:
+        https://developers.notion.com/docs
+        https://github.com/ramnes/notion-sdk-py
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Notion client object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
 FILE: pyak/oauth2_session.py
 ================================================
 from requests_toolbelt import sessions
@@ -14965,6 +15081,12 @@ def pipedrive_client(connection: str) ->Client:
 
 
 ================================================
+FILE: pyak/py.typed
+================================================
+
+
+
+================================================
 FILE: pyak/reddit.py
 ================================================
 """Initializes a Reddit client, based on an AutoKitteh connection."""
@@ -15039,8 +15161,8 @@ class Signal:
 def signal(session_id: str, name: str, payload: any=None) ->None:
     """Signal a session.
 
-    Cannot be used in an activity.
-    Works only for durable sessions.
+    Works both for durable and non-durable sessions.
+    Note that only durable sessions can receive signals.
     """
     ...
 

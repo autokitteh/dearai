@@ -1,7 +1,7 @@
 # AutoKitteh Overview
 
-AutoKitteh is a "serverless" platform to build and deploy durable workflows.
-Durable workflows are long-running processes that automatically resume after interruptions.
+AutoKitteh is a "serverless" platform to build and deploy workflows.
+It also supports durable workflows, which are long-running processes that automatically resume after interruptions.
 
 Important Sites:
 
@@ -10,7 +10,9 @@ Important Sites:
 
 # Durability
 
-AutoKitteh projects run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
+By default, AutoKitteh is running workflows in a non-durable manner. If they fail due to infrastructure reasons, they will just retry.
+
+AutoKitteh projects can, when enabled, also run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
 
 When a project fails due to infrastructure issues—such as instance crashes or network problems—Temporal uses a REPLAY mechanism. It reruns the entire workflow from the beginning, but leverages the cached activity results to skip re-executing those parts, allowing them to return immediately.
 AutoKitteh analyzes the Abstract Syntax Tree (AST) of project code to intelligently determine which function calls should run as ACTIVITIES and which should not.
