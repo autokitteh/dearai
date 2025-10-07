@@ -58,5 +58,5 @@ def on_first(_):
 
     print("Second webhook triggered!")
 
-    http_outcome(status_code=200, body=e.body.text)
+    http_outcome(status_code=200, body=e.data.body.text)
 ```

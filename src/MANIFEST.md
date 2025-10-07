@@ -10,7 +10,7 @@ A manifest is "applied" by the user (via CLI, or automatically by the Web Applic
 A manifest has a version. It is always specified in the `version` field:
 
 - Version `v1` implies that all triggers are creating a durable session by default, unless overridden with "is_durable: false".
-- Version `v2` implies that all triggers are creating a nondurable session by default, unlesss overridden with "is_durable: true".
+- Version `v2` implies that all triggers are creating a non-durable session by default, unless overridden with "is_durable: true".
 
 When authoring new manifests always use `v2` for versioning.
 

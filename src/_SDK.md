@@ -58,7 +58,7 @@ autokitteh.start(loc: str, data: dict = None, memo: dict = None) -> str
 ```
 
 - `loc` is the code location of the function start, format: "filename:function_name".
-- `data` is the payload to present to that function. It could read this from the `event` parameter as `event.data`.
+- `data` is the payload to pass to that function. The function can access this data via the `event.data` parameter.
 - `memo` is a string to string dictionary for general memo fields that will be displayed in the UI.
 
 The function returns the session ID for the newly created session.

@@ -15,7 +15,13 @@ By default, AutoKitteh is running workflows in a non-durable manner. If they fai
 AutoKitteh projects can, when enabled, also run code in a durable, fault-tolerant manner using Temporal (https://temporal.io) under the hood. Temporal ensures reliability by designating non-deterministic code as ACTIVITIES, which cache their results once completed.
 
 When a project fails due to infrastructure issues—such as instance crashes or network problems—Temporal uses a REPLAY mechanism. It reruns the entire workflow from the beginning, but leverages the cached activity results to skip re-executing those parts, allowing them to return immediately.
+
 AutoKitteh analyzes the Abstract Syntax Tree (AST) of project code to intelligently determine which function calls should run as ACTIVITIES and which should not.
+
+To summarize the difference between durable and non-durable:
+
+- In durable mode, if a crash occurs the program will replay from the beginning but skip already-completed activities using cached results, effectively resuming progress.
+- In non-durable mode, if a crash occurs the program will run from the beginning all over again.
 
 # Operation
 
