@@ -64,6 +64,14 @@ autokitteh.event module
    :undoc-members:
    :show-inheritance:
 
+autokitteh.triggers module
+--------------------------
+
+.. automodule:: autokitteh.triggers
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 autokitteh.zoom module
 ----------------------
 
@@ -124,6 +132,14 @@ autokitteh.linear module
 ------------------------
 
 .. automodule:: autokitteh.linear
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+autokitteh.azurebot module
+--------------------------
+
+.. automodule:: autokitteh.azurebot
    :members:
    :undoc-members:
    :show-inheritance:
@@ -240,6 +256,14 @@ autokitteh.errors module
    :undoc-members:
    :show-inheritance:
 
+autokitteh.notion module
+------------------------
+
+.. automodule:: autokitteh.notion
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 autokitteh.github module
 ------------------------
 
@@ -252,6 +276,14 @@ autokitteh.reddit module
 ------------------------
 
 .. automodule:: autokitteh.reddit
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+autokitteh.telegram module
+------------------------
+
+.. automodule:: autokitteh.telegram
    :members:
    :undoc-members:
    :show-inheritance:

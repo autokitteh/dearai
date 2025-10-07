@@ -8,8 +8,9 @@ from .outcomes import outcome, http_outcome
 from .signals import Signal, next_signal, signal
 from .errors import AutoKittehError
 from .store import add_values, del_value, get_value, list_values_keys, mutate_value, set_value, store
-__all__ = ['AttrDict', 'AutoKittehError', 'errors', 'http_outcome',
-    'outcome', 'start', 'activity', 'inhibit_activities',
+from .triggers import get_webhook_url
+__all__ = ['AttrDict', 'AutoKittehError', 'errors', 'get_webhook_url',
+    'http_outcome', 'outcome', 'start', 'activity', 'inhibit_activities',
     'register_no_activity', 'Event', 'next_event', 'subscribe',
     'unsubscribe', 'next_signal', 'signal', 'Signal', 'add_values',
     'del_value', 'get_value', 'list_values_keys', 'mutate_value',

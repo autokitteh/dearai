@@ -19,3 +19,7 @@ class OAuthRefreshError(AutoKittehError):
 
 class AtlassianOAuthError(AutoKittehError):
     """API calls not supported by OAuth-based Atlassian connections."""
+
+
+class AuthenticationError(Exception):
+    """Authentication failed."""

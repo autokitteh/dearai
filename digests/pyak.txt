@@ -9,6 +9,7 @@ Directory structure:
     ├── attr_dict.py
     ├── auth0.py
     ├── aws.py
+    ├── azurebot.py
     ├── connections.py
     ├── discord.py
     ├── errors.py
@@ -21,16 +22,20 @@ Directory structure:
     ├── kubernetes.py
     ├── linear.py
     ├── microsoft.py
+    ├── notion.py
     ├── oauth2_session.py
     ├── openai.py
     ├── outcomes.py
     ├── packages.py
     ├── pipedrive.py
+    ├── py.typed
     ├── reddit.py
     ├── salesforce.py
     ├── signals.py
     ├── slack.py
     ├── store.py
+    ├── telegram.py
+    ├── triggers.py
     ├── twilio.py
     └── zoom.py
 
@@ -47,8 +52,9 @@ from .outcomes import outcome, http_outcome
 from .signals import Signal, next_signal, signal
 from .errors import AutoKittehError
 from .store import add_values, del_value, get_value, list_values_keys, mutate_value, set_value, store
-__all__ = ['AttrDict', 'AutoKittehError', 'errors', 'http_outcome',
-    'outcome', 'start', 'activity', 'inhibit_activities',
+from .triggers import get_webhook_url
+__all__ = ['AttrDict', 'AutoKittehError', 'errors', 'get_webhook_url',
+    'http_outcome', 'outcome', 'start', 'activity', 'inhibit_activities',
     'register_no_activity', 'Event', 'next_event', 'subscribe',
     'unsubscribe', 'next_signal', 'signal', 'Signal', 'add_values',
     'del_value', 'get_value', 'list_values_keys', 'mutate_value',
@@ -156,8 +162,8 @@ def anthropic_client(connection: str) ->Anthropic:
     """Initialize an Anthropic client, based on an AutoKitteh connection.
 
     API reference:
-    https://docs.anthropic.com/claude/reference
-    https://github.com/anthropics/anthropic-sdk-python
+        https://docs.anthropic.com/claude/reference
+        https://github.com/anthropics/anthropic-sdk-python
 
     Args:
         connection: AutoKitteh connection name.
@@ -374,6 +380,48 @@ def boto3_client(connection: str, service: str, region: str='', **kwargs):
 
 
 ================================================
+FILE: azurebot.py
+================================================
+"""Initialize a AzureBot client, based on an AutoKitteh connection."""
+from dataclasses import dataclass
+from typing import Any
+import os
+import requests
+from .connections import check_connection_name
+from .errors import ConnectionInitError, AuthenticationError
+from .activities import activity
+
+
+@dataclass
+class _Credentials:
+    app_id: str
+    app_password: str
+    tenant_id: str
+
+
+class AzureBotClient:
+
+    @activity
+    def send_conversation_activity(self, activity: dict, conversation_id: (
+        str | None), service_url: str='https://smba.trafficmanager.net/teams/'
+        ) ->Any:
+        """Send activity synchronously.
+
+        If this is sent as a reply to an event, use the service_url from that event.
+
+        Raises on non-2xx statuses.
+
+        Returns the HTTP response body as JSON.
+        """
+        ...
+
+
+def azurebot_client(connection: str) ->AzureBotClient:
+    ...
+
+
+
+================================================
 FILE: connections.py
 ================================================
 """AutoKitteh connection-related utilities."""
@@ -465,6 +513,10 @@ class AtlassianOAuthError(AutoKittehError):
     """API calls not supported by OAuth-based Atlassian connections."""
 
 
+class AuthenticationError(Exception):
+    """Authentication failed."""
+
+
 
 ================================================
 FILE: event.py
@@ -492,7 +544,7 @@ from .attr_dict import AttrDict
 
 
 def subscribe(source: str, filter: str='') ->str:
-    """Subscribe to events on connection. Optional filter is a CEL expression.
+    """Subscribe to events on connections or triggers. Optional filter is a CEL expression.
 
     Works both in durable and nondurable sessions.
     """
@@ -979,6 +1031,37 @@ class OAuthTokenProvider(credentials.TokenCredential):
 
 
 ================================================
+FILE: notion.py
+================================================
+"""Initialize Notion client, based on an AutoKitteh connection."""
+import os
+from notion_client import Client
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def notion_client(connection: str) ->Client:
+    """Initialize a Notion client, based on an AutoKitteh connection.
+
+    API reference:
+        https://developers.notion.com/docs
+        https://github.com/ramnes/notion-sdk-py
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Notion client object.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+    """
+    ...
+
+
+
+================================================
 FILE: oauth2_session.py
 ================================================
 from requests_toolbelt import sessions
@@ -1126,6 +1209,12 @@ def pipedrive_client(connection: str) ->Client:
 
 
 ================================================
+FILE: py.typed
+================================================
+
+
+
+================================================
 FILE: reddit.py
 ================================================
 """Initializes a Reddit client, based on an AutoKitteh connection."""
@@ -1200,8 +1289,8 @@ class Signal:
 def signal(session_id: str, name: str, payload: any=None) ->None:
     """Signal a session.
 
-    Cannot be used in an activity.
-    Works only for durable sessions.
+    Works both for durable and non-durable sessions.
+    Note that only durable sessions can receive signals.
     """
     ...
 
@@ -1390,6 +1479,51 @@ def list_values_keys() ->list[str]:
     Returns:
         list[str]: Sorted list of all keys in the store.
     """
+    ...
+
+
+
+================================================
+FILE: telegram.py
+================================================
+"""Initialize a Telegram client, based on an AutoKitteh connection."""
+import os
+from telegram import Bot
+from .connections import check_connection_name
+from .errors import ConnectionInitError
+
+
+def telegram_client(connection: str) ->Bot:
+    """Initialize a Telegram client, based on an AutoKitteh connection.
+
+    API reference:
+        https://github.com/python-telegram-bot/python-telegram-bot
+        https://core.telegram.org/bots/api
+        https://core.telegram.org/bots/samples
+
+    Args:
+        connection: AutoKitteh connection name.
+
+    Returns:
+        Telegram Bot API client.
+
+    Raises:
+        ValueError: AutoKitteh connection name is invalid.
+        ConnectionInitError: AutoKitteh connection was not initialized yet.
+        telegram.error.TelegramError: Telegram SDK initialization errors.
+    """
+    ...
+
+
+
+================================================
+FILE: triggers.py
+================================================
+"""Utility functions for triggers."""
+import os
+
+
+def get_webhook_url(trigger_name: str) ->str:
     ...
 
 

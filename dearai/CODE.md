@@ -22,6 +22,7 @@ gspread ~= 6.2
 hubspot-api-client ~= 11.1
 kubernetes ~= 31.0
 msgraph-sdk ~= 1.18
+notion_client ~= 2.0
 openai ~= 1.57
 pipedrive-python-lib ~= 1.2
 praw ~= 7.8
@@ -76,7 +77,7 @@ NEVER specifiy any integration that does not appear above as an integration.
 
 ## Function Return Value Must Be Pickleable
 
-We use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
+In durable mode, we use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
 
 - Open file handlers (when open returns)
 - lambdas
@@ -104,7 +105,7 @@ NOTE: You can use copyreg.pickle in order to support more types.
 
 ## Function Timeout
 
-If a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
+In durable mode, if a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
 
 Say you have the following code:
 
@@ -459,6 +460,52 @@ See also this sample project:
 https://github.com/autokitteh/kittehub/tree/main/samples/runtime_events
 
 
+## Waiting for events in programs
+
+In some cases, especially in human-in-the-loop scenarios, a user might want to wait for an event to happen from an execution of another session that started earlier. For that you should use the `autokitteh.next_event`, `autokitteh.subscribe` and `autokitteh.unsubscribe` functions in `pyak`.
+
+### Example
+
+In this example, we trigger a webhook that will wait for another webhook to trigger. Once the second webhook is triggered, the session will end.
+
+manifest.yaml:
+
+```yaml
+version: v2
+
+project:
+  name: sync_webhook
+
+  triggers:
+    - name: first
+      type: webhook
+      call: program.py:on_first
+      is_sync: true
+
+    - name: second
+      type: webhook
+      # IMPORTANT: No call specified, this is just used to allocate a webhook URL.
+      # The script in program.py will just call `next_event` on this
+      # to detect that it's triggered.
+```
+
+program.py:
+
+```py
+from autokitteh import http_outcome, next_event, subscribe
+
+
+def on_first(_):
+    print("First webhook triggered!")
+
+    s = subscribe("second")
+    e = next_event(s)
+
+    print("Second webhook triggered!")
+
+    http_outcome(status_code=200, body=e.body.text)
+```
+
 # TODO
 
 
@@ -470,7 +517,7 @@ All code listings are in txtar format.
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: minimal
@@ -518,7 +565,7 @@ def on_trigger(_):
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: webhook_to_slack
@@ -574,7 +621,7 @@ def on_webhook(event):
 version: v1
 
 project:
-  name: explicit_activites
+  name: explicit_activities
 
   vars:
     - name: SHEET_ID
@@ -600,7 +647,7 @@ def on_trigger(_):
 # The autokitteh.activity decorator allow you to mark a function that must run as activity.
 # This allows you to run function with arguments or return values that are not compatible with pickle.
 #
-# The reason why this is neccessary here is that client.update returns
+# The reason why this is necessary here is that client.update returns
 # an object that is not serializable (or "pickleable"), so we cannot have `update`
 # and `execute` run in separate activities since the data will need to be serialized
 # between their invocations, and thus fail.
@@ -633,3 +680,4 @@ def _write():
 - AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
 - IMPORTANT: All object names (projects, connections, triggers, vars) must be words which adhere to the following regex: "^[a-zA-Z\_][\w]\*$". To emphasize, do not use dashes, spaces or any other special characters for these.
+- Some pyak (AutoKitteh's Python SDK for sessions) can be run only in durable sessions, some only in nondurable sessions and some can run in any mode. Check the function's docstring to know.
