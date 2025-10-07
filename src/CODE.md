@@ -26,5 +26,5 @@ If the additional packages are required, they can be specified in a `requirement
 - NEVER "invent" new AutoKitteh functions that are not explicitly exist in AutoKitteh's SDK (pyak).
 - AutoKitteh will display uncaught exceptions to the user. Only catch and translate the exception if absolutely neccessary for the user to understand it.
 - When using `autokitteh.subscribe`, no need to `autokitteh.unsubscribe` at the end of the program. These will be done automatically.
-- IMPORTANT: All object names (projects, connections, triggers, vars) must be words which adhere to the following regex: "^[a-zA-Z\_][\w]\*$". To emphasize, do not use dashes, spaces or any other special characters for these.
-- Some pyak (AutoKitteh's Python SDK for sessions) can be run only in durable sessions, some only in nondurable sessions and some can run in any mode. Check the function's docstring to know.
+- IMPORTANT: All object names (projects, connections, triggers, vars) must be words which adhere to the following regex: `^[a-zA-Z_]\w*$`. To emphasize, do not use dashes, spaces or any other special characters for these.
+- Some pyak (AutoKitteh's Python SDK for sessions) can be run only in durable sessions, some only in non-durable sessions and some can run in any mode. Check the function's docstring to know.

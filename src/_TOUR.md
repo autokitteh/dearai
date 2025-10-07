@@ -77,6 +77,7 @@ project:
       value: "#general"
 
 -- program.py --
+from os import getenv
 from autokitteh.slack import slack_client
 
 # `slack_client` returns the official slack client.
@@ -88,6 +89,8 @@ from autokitteh.slack import slack_client
 #       that allows users to make some things always run, even
 #       on replay. Useful for ephemeral client initializations, etc.
 client = slack_client("slack_conn")
+
+CHANNEL = getenv("CHANNEL")
 
 # This is triggered when the webhook is hit.
 def on_webhook(event):
@@ -121,6 +124,7 @@ project:
       integration: googlesheets
 
 -- program.py --
+from os import getenv
 import autokitteh # The autokitteh module is installed to the default AutoKitteh virtual environment.
 from autokitteh.google import google_sheets_client
 
