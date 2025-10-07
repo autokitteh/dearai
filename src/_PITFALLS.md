@@ -2,7 +2,7 @@
 
 ## Function Return Value Must Be Pickleable
 
-We use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
+In durable mode, we use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:
 
 - Open file handlers (when open returns)
 - lambdas
@@ -30,7 +30,7 @@ NOTE: You can use copyreg.pickle in order to support more types.
 
 ## Function Timeout
 
-If a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
+In durable mode, if a function that runs in a workflow context (not in an activity) takes a long time, it might cause a timeout.
 
 Say you have the following code:
 

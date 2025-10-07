@@ -6,7 +6,7 @@ All code listings are in txtar format.
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: minimal
@@ -54,7 +54,7 @@ def on_trigger(_):
 
 ```txtar
 -- autokitteh.yaml --
-version: v1
+version: v2
 
 project:
   name: webhook_to_slack
@@ -110,7 +110,7 @@ def on_webhook(event):
 version: v1
 
 project:
-  name: explicit_activites
+  name: explicit_activities
 
   vars:
     - name: SHEET_ID
@@ -136,7 +136,7 @@ def on_trigger(_):
 # The autokitteh.activity decorator allow you to mark a function that must run as activity.
 # This allows you to run function with arguments or return values that are not compatible with pickle.
 #
-# The reason why this is neccessary here is that client.update returns
+# The reason why this is necessary here is that client.update returns
 # an object that is not serializable (or "pickleable"), so we cannot have `update`
 # and `execute` run in separate activities since the data will need to be serialized
 # between their invocations, and thus fail.
