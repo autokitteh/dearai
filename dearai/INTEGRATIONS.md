@@ -19,6 +19,7 @@ hubspot
 jira
 linear
 slack
+telegram
 twilio
 youtube
 zoom
