@@ -51,7 +51,7 @@ You can see the logs of a selected session in the OUTPUT panel.
 AutoKitteh has two output tabs:
 
 - `autokitteh-session-logs` - the logs of the selected session
-- `autokitteh-log` - all inteactions with the AutoKitteh server
+- `autokitteh-log` - all interactions with the AutoKitteh server
 
 :::
 

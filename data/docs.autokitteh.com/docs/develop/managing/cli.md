@@ -59,7 +59,7 @@ HTTP GET request to URL: `[server address]:9980/http/quickstart/trigger_path`. W
 # This YAML file is a declarative manifest that describes
 # the minimal setup of an AutoKitteh project.
 
-version: v1
+version: v2
 
 project:
   name: quickstart
