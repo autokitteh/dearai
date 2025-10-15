@@ -20,7 +20,7 @@ Write the following two files in a directory.
 
 ```yaml title="autokitteh.yaml"
 ---
-version: v1
+version: v2
 
 project:
   name: py_simple
@@ -209,35 +209,18 @@ If you want to create your own virtual environment, see [here](https://packaging
 To see how you can install other version of Python, see [pyenv](https://github.com/pyenv/pyenv).
 :::
 
-AutoKitteh installs the following packages to the virtual environment:
+AutoKitteh automatically installs a comprehensive set of packages for integrations and common utilities.
 
-```
-# Integrations
+**IMPORTANT**: These packages are pre-installed and should **NOT** be added to your project's `requirements.txt`.
 
-atlassian-python-api ~= 3.41
-boto3 ~= 1.34
-google-api-python-client ~= 2.122
-google-auth-httplib2 ~= 0.2
-google-auth-oauthlib ~= 1.2
-jira ~= 3.8
-openai ~= 1.14
-PyGithub ~= 2.2
-redis ~= 5.0
-slack-sdk ~= 3.27
-twilio ~= 9.0
+For the complete and up-to-date list of pre-installed packages, see:
+- **[requirements.txt](https://github.com/autokitteh/autokitteh/blob/main/runtimes/pythonrt/py-sdk/docs/requirements.txt)** - Full list with versions
+- **[pyproject.toml](https://github.com/autokitteh/autokitteh/blob/main/runtimes/pythonrt/py-sdk/pyproject.toml)** - Package metadata
 
-# AutoKitteh SDK
-
-autokitteh ~= 0.2
-
-# General
-
-beautifulsoup4 ~= 4.12
-PyYAML ~= 6.0
-requests ~= 2.31
-```
-
-See the update list [here](https://github.com/autokitteh/autokitteh/blob/main/runtimes/pythonrt/py-sdk/pyproject.toml).
+Pre-installed packages include:
+- **Integration libraries**: Slack SDK, PyGithub, OpenAI, Anthropic, Google APIs, AWS Boto3, and more
+- **AutoKitteh SDK**: `autokitteh` module for workflow orchestration
+- **Utilities**: requests, BeautifulSoup4, PyYAML, tenacity, and more
 
 ### Installing Python Packages
 
@@ -356,7 +339,7 @@ You need to run this command _after_ starting `ak`.
 The easiest way to run a workflow locally is to add an HTTP trigger.
 
 ```yaml title="autokitteh.yaml"
-version: v1
+version: v2
 
 project:
   name: hello

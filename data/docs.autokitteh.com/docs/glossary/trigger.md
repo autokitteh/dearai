@@ -83,3 +83,78 @@ triggers:
     filter: data.headers["Content-Type"].startsWith("application/json")
     call: webhooks.py:on_http_post_json
 ```
+
+## Filter Syntax
+
+Filters use CEL (Common Expression Language) to selectively trigger execution based on event data.
+
+:::tip
+
+Complete CEL reference: https://github.com/google/cel-spec/blob/master/doc/langdef.md
+
+:::
+
+### Event Type Filters
+
+```yaml
+# Single event type
+filter: event_type == 'issue_created'
+
+# Multiple event types with OR
+filter: event_type == 'issue_created' || event_type == 'issue_updated'
+
+# Pattern matching - any issue-related events
+filter: event_type.startsWith('issue_')
+
+# Pattern matching - any creation events
+filter: event_type.endsWith('_created')
+
+# Substring matching
+filter: event_type.contains('comment')
+```
+
+### Data Payload Filters
+
+```yaml
+# Simple field equality
+filter: data.action == 'opened'
+
+# Multiple conditions with AND
+filter: data.method == 'POST' && data.url.path.endsWith('/api')
+
+# List membership
+filter: data.method in ['GET', 'HEAD']
+
+# Size checks
+filter: size(data.items) > 5 || size(data.description) < 100
+
+# Nested field access
+filter: data.issue.labels[0].name == 'bug'
+
+# Dictionary access
+filter: data.headers['Content-Type'] == 'application/json'
+```
+
+### Complex Filter Examples
+
+```yaml
+# GitHub: Only PRs to main branch
+filter: event_type == 'pull_request' && data.pull_request.base.ref == 'main'
+
+# Slack: Messages in specific channel from non-bots
+filter: event_type == 'message' && data.channel == 'C12345' && !data.bot_id
+
+# HTTP: POST requests with JSON to specific endpoint
+filter: data.method == 'POST' && data.url.path == '/api/v1/webhook' && data.headers['Content-Type'].startsWith('application/json')
+
+# Gmail: Emails from specific domain with attachments
+filter: event_type == 'message_received' && data.from.endsWith('@example.com') && size(data.attachments) > 0
+```
+
+:::tip
+
+Using filters in triggers is more efficient than checking conditions in your Python code, because it prevents unnecessary session creation.
+
+:::
+
+See also: [Filter Expressions in Manifest Reference](/develop/manifest#filter-expressions)
