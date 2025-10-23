@@ -23,7 +23,7 @@ cd -
 
 rm -fR kittehub-main/.git kittehub-main/.github kittehub-main/tests
 find kittehub-main/ -maxdepth 1 -type f -exec rm -f {} \;
-find . \( -name \*.gpx -or -name \*.png \) -exec rm -f {} \;
+find . \( -name \*.gpx -or -name \*.png -or -name \*.gz \) -exec rm -f {} \;
 
 sed -n '/^#.*/!p' <  "autokitteh-main/runtimes/pythonrt/py-sdk/docs/requirements.txt" | sed -n "/^$/!p" > requirements.txt
 

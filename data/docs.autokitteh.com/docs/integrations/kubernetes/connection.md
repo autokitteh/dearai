@@ -1,3 +1,8 @@
+---
+sidebar_label: Connection
+description: Initialize a connection with an service account
+---
+
 # Connect Your Kubernetes Cluster to Autokitteh
 
 This guide helps you expose your Kubernetes API securely and create a non-expiring kubeconfig file in JSON format for use with Autokitteh.
