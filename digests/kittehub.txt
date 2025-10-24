@@ -107,6 +107,19 @@ Directory structure:
     │   ├── README.md
     │   ├── autokitteh.yaml
     │   └── program.py
+    ├── gocat/
+    │   ├── README.md
+    │   ├── autokitteh.yaml
+    │   ├── handlers.py
+    │   ├── Makefile
+    │   ├── store.py
+    │   └── _extension/
+    │       ├── README.md
+    │       ├── background.js
+    │       ├── manifest.json
+    │       ├── options.html
+    │       ├── options.js
+    │       └── rules.json
     ├── google_cal_to_asana/
     │   ├── README.md
     │   ├── autokitteh.yaml
@@ -6023,6 +6036,694 @@ def _verify_signature(payload: bytes, secret: str, signature: str):
     expected = "sha256=" + hash.hexdigest()
     if not hmac.compare_digest(expected, signature):
         raise RuntimeError("Request signatures didn't match!")
+
+
+
+================================================
+FILE: gocat/README.md
+================================================
+title: Gocat - URL Shortener & Redirector
+description: Simple URL shortener using Google Sheets as a data store with webhook-based redirection
+integrations: ["googlesheets"]
+categories: ["Productivity"]
+tags: ["webhook_handling", "sync_responses"]
+
+
+
+================================================
+FILE: gocat/autokitteh.yaml
+================================================
+version: v2
+
+project:
+  name: gocat
+
+  vars:
+    - name: GOOGLE_SPREADSHEET_ID
+      value: ""
+      description: >
+        The ID of the Google Spreadsheet to read the directory data from.
+        You can find this ID in the URL of the spreadsheet.
+    - name: DIRECTORY_SHEET_NAME
+      value: ""
+      description: >
+        The name of the sheet within the Google Spreadsheet that contains the directory data.
+        If empty, the first sheet will be used.
+
+  connections:
+    - name: gsheets
+      integration: googlesheets
+
+  triggers:
+    - name: webhook
+      type: webhook
+      call: handlers.py:on_webhook
+      event_type: get
+      is_sync: true
+
+
+
+================================================
+FILE: gocat/handlers.py
+================================================
+"""gocat handlers.
+
+This module provides webhook handlers for the gocat URL shortener/redirector service.
+It processes incoming webhook requests and redirects them to stored URLs based on path
+matching.
+"""
+
+from urllib.parse import urljoin
+
+from autokitteh import Event, http_outcome
+import store
+
+
+def _extract_suffix(path: str) -> str:
+    """Extract the suffix portion from a webhook path.
+
+    The expected path format is: /webhooks/<slug>/<suffix>
+    This function extracts and returns the <suffix> part.
+
+    >>> _extract_suffix("/webhooks/myslug/docs/api")
+    "docs/api"
+    >>> _extract_suffix("/webhooks/myslug")
+    ""
+
+    Args:
+        path: The full URL path from the webhook request
+
+    Returns:
+        The suffix portion of the path (everything after the slug), or empty string if
+        no suffix
+
+    Raises:
+        ValueError: If the path doesn't have at least 2 parts when split by '/'
+    """
+    # Remove leading slash if present
+    if path.startswith("/"):
+        path = path[1:]
+
+    # Split path into parts: ['webhooks', '<slug>', '<suffix>']
+    parts = path.split("/", 2)
+    if len(parts) < 2:
+        raise ValueError("Invalid path, expecting /webhooks/<slug>/<suffix>")
+
+    # Return suffix (third part) if it exists, otherwise empty string
+    return parts[2] if len(parts) > 2 else ""
+
+
+def on_webhook(event: Event):
+    """Handle incoming webhook events and redirect to stored URLs.
+
+    This is the main webhook handler that processes incoming requests and performs
+    URL lookups and redirections based on the path suffix.
+
+    Behavior:
+    - No suffix: Redirects to the Google Spreadsheet (302)
+    - One match: Redirects to the matched URL (302)
+    - Multiple matches: Returns an HTML page with all matching links (200)
+    - No matches: Returns 404 error
+    """
+    # Extract the suffix from the URL path (everything after the slug)
+    suffix = _extract_suffix(event.data.url.path)
+
+    print(f"path suffix: '{suffix}'")
+
+    if not suffix:
+        # Redirect to the spreadsheet URL if no suffix is provided.
+        loc = store.spreadsheet_url()
+        print(f"no suffix provided, redirecting to {loc}")
+        http_outcome(302, headers={"Location": loc})
+        return
+
+    # Split the suffix into first part (search key) and remaining path
+    parts = suffix.split("/", 1)
+
+    # first = the search key to look up in the store
+    # second = any additional path to append to the matched URL
+    first, second = parts[0], parts[1] if len(parts) > 1 else ""
+
+    # Search for matching URLs in the store
+    results = store.find(first)
+
+    match results:
+        case []:
+            print("no matches found")
+            http_outcome(404, body="No matches found")
+            return
+
+        case [result]:
+            # If there's an additional path, append it to the result URL
+            if second:
+                # Ensure the base URL ends with a slash before joining
+                if not result.endswith("/"):
+                    result += "/"
+                loc = urljoin(result, second)
+            else:
+                loc = result
+
+            print(f"single match found: {result} -> {loc}")
+
+            http_outcome(302, headers={"Location": loc})
+            return
+
+        case _:
+            print("multiple matches found:\n- " + "\n- ".join(results))
+
+            links = "\n\t\t".join(
+                f'<li><a href="{url}">{url}</a></li>' for url in results
+            )
+
+            body = f"""<html>
+    <head>
+        <title>Multiple matches</title>
+    </head>
+    <body>
+        <h1>Multiple matches for '{first}'</h1>
+        <ul>
+            {links}
+        </ul>
+    </body>
+</html>"""
+
+            http_outcome(200, body=body, headers={"Content-Type": "text/html"})
+            return
+
+
+
+================================================
+FILE: gocat/Makefile
+================================================
+UVX=uvx --with autokitteh --with gspread
+
+.PHONY: all
+all: lint typecheck format
+
+.PHONY: lint
+lint:
+	$(UVX) ruff check --config ../pyproject.toml --ignore I001
+
+.PHONY: format
+format:
+	$(UVX) ruff format --check --config ../pyproject.toml
+
+.PHONY: typecheck
+typecheck:
+	$(UVX) mypy --follow-untyped-imports  .
+
+
+.PHONY: deploy
+deploy:
+	ak deploy --manifest autokitteh.yaml
+
+
+
+================================================
+FILE: gocat/store.py
+================================================
+"""Store module for managing URL mappings in Google Sheets.
+
+This module provides an interface to a Google Spreadsheet that acts as a data store
+for URL mappings. It reads short keys from column 1 and their corresponding full URLs
+from column 2.
+
+Required environment variables:
+- GOOGLE_SPREADSHEET_ID: The ID of the Google Spreadsheet to use as the data store
+- DIRECTORY_SHEET_NAME: (Optional) The name of the sheet to use. Defaults to the first
+  sheet.
+"""
+
+from os import getenv
+
+from autokitteh.google import gspread_client
+import gspread
+
+
+# Get the Google Spreadsheet ID from environment variable (required)
+_GOOGLE_SPREADSHEET_ID = getenv("GOOGLE_SPREADSHEET_ID")
+if not _GOOGLE_SPREADSHEET_ID:
+    raise RuntimeError("GOOGLE_SPREADSHEET_ID not set")
+
+# Get the sheet name from environment variable (optional, defaults to first sheet)
+_DIRECTORY_SHEET_NAME = getenv("DIRECTORY_SHEET_NAME")
+
+# Initialize the Google Sheets client and open the spreadsheet
+_client = gspread_client("gsheets").open_by_key(_GOOGLE_SPREADSHEET_ID)
+
+
+def spreadsheet_url() -> str:
+    """Get the URL of the Google Spreadsheet."""
+    return f"https://docs.google.com/spreadsheets/d/{_GOOGLE_SPREADSHEET_ID}"
+
+
+def _index_sheet() -> gspread.Worksheet:
+    """Get the index sheet containing the URL mappings.
+
+    Returns the worksheet specified by DIRECTORY_SHEET_NAME environment variable,
+    or the first sheet if not specified.
+    """
+    return (
+        _client.worksheet(_DIRECTORY_SHEET_NAME)
+        if _DIRECTORY_SHEET_NAME
+        else _client.sheet1
+    )
+
+
+def find(path: str) -> list[str]:
+    """Find all matching URLs for the given path in the index sheet.
+
+    Searches column 1 of the sheet for cells matching the given path, then returns
+    the corresponding URLs from column 2.
+
+    The spreadsheet format should be:
+    - Column 1: Short keys/identifiers
+    - Column 2: Full URLs
+
+    Args:
+        path: The search key to look up in column 1
+
+    Returns:
+        A list of matching URLs from column 2. Empty list if no matches found.
+        Filters out any None or empty values.
+
+    Example:
+        If the sheet contains:
+        | docs | https://example.com/docs |
+        | docs | https://example.org/docs |
+
+        Then find("docs") returns:
+        ["https://example.com/docs", "https://example.org/docs"]
+    """
+    sheet = _index_sheet()
+    rows = [cell.row for cell in sheet.findall(path, in_column=1)]
+    cells = [sheet.cell(row, 2) for row in rows]
+    results = [cell.value for cell in cells if cell]
+    return [r for r in results if r]
+
+
+
+================================================
+FILE: gocat/_extension/README.md
+================================================
+
+
+
+================================================
+FILE: gocat/_extension/background.js
+================================================
+// Get the base URL from storage (no default)
+async function getBaseUrl() {
+  const result = await chrome.storage.sync.get(["baseUrl"]);
+  return result.baseUrl; // Will be undefined if not set
+}
+
+// Check if extension is configured
+async function isConfigured() {
+  const baseUrl = await getBaseUrl();
+  return baseUrl && baseUrl.trim() !== "";
+}
+
+// Show setup notification
+function showSetupNotification() {
+  chrome.notifications.create({
+    type: "basic",
+    iconUrl:
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjAiIGZpbGw9IiM0Mjg1ZjQiLz4KPHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSI+CjxwYXRoIGQ9Ik0yNCAzNlYyNE0yNCAyNEwyNCAyNE0yNCAyNEwyNCAyNE0yNCAyNEwyNCAyNE0yNCAyNEwyNCAyNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+",
+    title: "Go Links Setup Required",
+    message: "Please configure your base URL in the extension options first.",
+  });
+}
+
+// Update redirect rules when base URL changes
+async function updateRedirectRules() {
+  const baseUrl = await getBaseUrl();
+
+  // Remove existing rules
+  const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+  const ruleIdsToRemove = existingRules.map((rule) => rule.id);
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: ruleIdsToRemove,
+    addRules: [], // Remove all rules initially
+  });
+
+  // Only add rule if baseUrl is configured
+  if (baseUrl && baseUrl.trim() !== "") {
+    const newRules = [
+      {
+        id: 1,
+        priority: 1,
+        action: {
+          type: "redirect",
+          redirect: {
+            regexSubstitution: baseUrl + "\\1",
+          },
+        },
+        condition: {
+          regexFilter: "^https?://go/(.*)$",
+          resourceTypes: ["main_frame", "sub_frame"],
+        },
+      },
+    ];
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [],
+      addRules: newRules,
+    });
+  }
+}
+
+// Handle omnibox input (for "go<space>whatever" in address bar)
+chrome.omnibox.onInputEntered.addListener(async function (text) {
+  const configured = await isConfigured();
+
+  if (!configured) {
+    // Open options page if not configured
+    chrome.runtime.openOptionsPage();
+    return;
+  }
+
+  const baseUrl = await getBaseUrl();
+  const redirectUrl = baseUrl + text;
+  chrome.tabs.update({ url: redirectUrl });
+});
+
+// Handle extension icon clicks to open options if not configured
+chrome.action.onClicked.addListener(async function () {
+  const configured = await isConfigured();
+
+  if (!configured) {
+    chrome.runtime.openOptionsPage();
+  } else {
+    // Could show a popup or just open options anyway
+    chrome.runtime.openOptionsPage();
+  }
+});
+
+// Initialize rules on startup
+chrome.runtime.onStartup.addListener(updateRedirectRules);
+chrome.runtime.onInstalled.addListener(async function (details) {
+  await updateRedirectRules();
+
+  // Show setup notification on first install
+  if (details.reason === "install") {
+    const configured = await isConfigured();
+    if (!configured) {
+      chrome.runtime.openOptionsPage();
+    }
+  }
+});
+
+// Listen for storage changes to update rules
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === "sync" && changes.baseUrl) {
+    updateRedirectRules();
+  }
+});
+
+
+
+================================================
+FILE: gocat/_extension/manifest.json
+================================================
+{
+  "manifest_version": 3,
+  "name": "GoCat Links",
+  "version": "1.0",
+  "description": "Personal go links for quick navigation",
+  "permissions": ["storage", "declarativeNetRequest", "notifications"],
+  "host_permissions": ["http://go/*", "https://go/*"],
+  "omnibox": { "keyword": "go" },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {},
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "go_links_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}
+
+
+
+================================================
+FILE: gocat/_extension/options.html
+================================================
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Go Links Options</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 600px;
+        margin: 20px auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .container {
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+      .setup-required {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+      input[type="url"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      button {
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      button:hover {
+        background: #3367d6;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 4px;
+        display: none;
+      }
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .examples {
+        margin-top: 20px;
+        padding: 15px;
+        background: #e8f4f8;
+        border-radius: 4px;
+      }
+      .examples h3 {
+        margin-top: 0;
+      }
+      .examples code {
+        background: #f1f1f1;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      .current-config {
+        margin-top: 15px;
+        padding: 10px;
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 4px;
+      }
+      .current-config.not-configured {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Go Links Setup</h1>
+
+      <div id="setupRequired" class="setup-required">
+        <strong>⚠️ Setup Required:</strong> You must configure a base URL before
+        Go Links will work.
+      </div>
+
+      <div id="currentConfig" class="current-config not-configured">
+        <strong>Status:</strong> <span id="configStatus">Not configured</span>
+      </div>
+
+      <label for="baseUrl">Base URL (required):</label>
+      <input
+        type="url"
+        id="baseUrl"
+        placeholder="https://wiki.company.com/"
+        required
+      />
+
+      <button id="save">Save Settings</button>
+
+      <div id="status" class="status"></div>
+
+      <div class="examples">
+        <h3>Examples:</h3>
+        <p>
+          <strong>Company Wiki:</strong> <code>https://wiki.company.com/</code>
+        </p>
+        <p>
+          <strong>Development Server:</strong>
+          <code>https://localhost:3000/</code>
+        </p>
+        <p>
+          <strong>Internal Tools:</strong>
+          <code>https://internal.company.com/tools/</code>
+        </p>
+
+        <h3>How it works:</h3>
+        <p>With base URL <code>https://wiki.company.com/</code>:</p>
+        <ul>
+          <li>
+            <code>http://go/docs</code> →
+            <code>https://wiki.company.com/docs</code>
+          </li>
+          <li>
+            <code>go api</code> (in address bar) →
+            <code>https://wiki.company.com/api</code>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
+
+
+
+================================================
+FILE: gocat/_extension/options.js
+================================================
+// Load saved settings and update UI
+document.addEventListener("DOMContentLoaded", async function () {
+  const result = await chrome.storage.sync.get(["baseUrl"]);
+  const baseUrl = result.baseUrl;
+
+  const baseUrlInput = document.getElementById("baseUrl");
+  const setupRequired = document.getElementById("setupRequired");
+  const currentConfig = document.getElementById("currentConfig");
+  const configStatus = document.getElementById("configStatus");
+
+  if (baseUrl && baseUrl.trim() !== "") {
+    baseUrlInput.value = baseUrl;
+    setupRequired.style.display = "none";
+    currentConfig.className = "current-config";
+    configStatus.textContent = `Configured: ${baseUrl}`;
+  } else {
+    setupRequired.style.display = "block";
+    currentConfig.className = "current-config not-configured";
+    configStatus.textContent = "Not configured - Go Links will not work";
+  }
+});
+
+// Save settings
+document.getElementById("save").addEventListener("click", async function () {
+  const baseUrl = document.getElementById("baseUrl").value.trim();
+
+  // Validation
+  if (!baseUrl) {
+    showStatus("Please enter a base URL", false);
+    return;
+  }
+
+  try {
+    new URL(baseUrl); // Validate URL format
+  } catch (e) {
+    showStatus("Please enter a valid URL (including https://)", false);
+    return;
+  }
+
+  // Ensure URL ends with /
+  const finalUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+
+  // Save to storage
+  await chrome.storage.sync.set({ baseUrl: finalUrl });
+
+  // Update UI
+  const setupRequired = document.getElementById("setupRequired");
+  const currentConfig = document.getElementById("currentConfig");
+  const configStatus = document.getElementById("configStatus");
+
+  setupRequired.style.display = "none";
+  currentConfig.className = "current-config";
+  configStatus.textContent = `Configured: ${finalUrl}`;
+
+  showStatus("Settings saved successfully! Go Links is now active.", true);
+});
+
+// Handle Enter key in input field
+document.getElementById("baseUrl").addEventListener("keypress", function (e) {
+  if (e.key === "Enter") {
+    document.getElementById("save").click();
+  }
+});
+
+function showStatus(message, isSuccess) {
+  const status = document.getElementById("status");
+  status.textContent = message;
+  status.className = `status ${isSuccess ? "success" : "error"}`;
+  status.style.display = "block";
+
+  // Hide after 3 seconds
+  setTimeout(() => {
+    status.style.display = "none";
+  }, 3000);
+}
+
+
+
+================================================
+FILE: gocat/_extension/rules.json
+================================================
+[]
 
 
 
@@ -15531,15 +16232,14 @@ project:
 
   triggers:
     - name: poll_for_new_videos
-      type: schedule
-      cron_expression: "*/5 * * * *"
+      schedule: "*/5 * * * *"
       call: program.py:poll_for_new_videos
 
   vars:
     - name: YOUTUBE_CHANNEL_NAME
-      value:
+      value: ""
     - name: SLACK_CHANNEL
-      value:
+      value: ""
 
 
 
@@ -15553,13 +16253,11 @@ import os
 
 import autokitteh
 from autokitteh.google import youtube_client
-from autokitteh.openai import openai_client
 from autokitteh.slack import slack_client
 
 
 youtube = youtube_client("youtube_conn")
 slack = slack_client("slack_conn")
-chatgpt = openai_client("chatgpt_conn")
 
 
 YT_CHANNEL_NAME = os.getenv("YOUTUBE_CHANNEL_NAME")
