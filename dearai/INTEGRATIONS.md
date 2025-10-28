@@ -1,4 +1,5 @@
 The following integration names are supported:
+anthropic
 asana
 auth0
 autokitteh
@@ -18,6 +19,8 @@ height
 hubspot
 jira
 linear
+notion
+pipedrive
 slack
 telegram
 twilio
