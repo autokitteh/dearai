@@ -47,6 +47,7 @@ tenacity ~= 9.0
 If the additional packages are required, they can be specified in a `requirements.txt` file.
 
 The following integration names are supported:
+anthropic
 asana
 auth0
 autokitteh
@@ -66,6 +67,8 @@ height
 hubspot
 jira
 linear
+notion
+pipedrive
 slack
 telegram
 twilio

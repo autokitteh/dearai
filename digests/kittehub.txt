@@ -203,6 +203,10 @@ Directory structure:
     │   ├── room_status.py
     │   └── util.py
     ├── samples/
+    │   ├── anthropic/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   └── program.py
     │   ├── asana/
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
@@ -267,7 +271,15 @@ Directory structure:
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
+    │   ├── notion/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   └── program.py
     │   ├── openai_chatgpt/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   └── program.py
+    │   ├── pipedrive/
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
@@ -12066,6 +12078,140 @@ def get_email_from_slack_command(text):
 
 
 ================================================
+FILE: samples/anthropic/README.md
+================================================
+title: Anthropic Claude sample
+description: Sample using Anthropic Claude API
+integrations: ["anthropic"]
+categories: ["AI", "Samples"]
+
+
+
+================================================
+FILE: samples/anthropic/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with
+# Anthropic Claude.
+
+version: v1
+
+project:
+  name: anthropic_sample
+
+  connections:
+    - name: anthropic_conn
+      integration: anthropic
+
+  triggers:
+    - name: on_http_post_with_prompt
+      type: webhook
+      event_type: post
+      call: program.py:on_http_post_with_prompt
+
+    - name: on_http_get_demo
+      type: webhook
+      event_type: get
+      call: program.py:on_http_get_demo
+
+
+
+================================================
+FILE: samples/anthropic/program.py
+================================================
+"""This program demonstrates AutoKitteh's Anthropic Claude integration.
+
+The program implements two entry-point functions:
+- one that requires a custom prompt in the HTTP request body
+- one that uses a default prompt for quick demos
+
+Both functions are configured in the "autokitteh.yaml" manifest file.
+They send requests to the Claude API and print the responses
+in the AutoKitteh session log, along with Claude's usage statistics.
+
+This program isn't meant to cover all available functions and events.
+It merely showcases various illustrative, annotated, reusable examples.
+"""
+
+from autokitteh.anthropic import anthropic_client
+
+
+MODEL = "claude-3-5-haiku-20241022"
+
+claude = anthropic_client("anthropic_conn")
+
+
+def on_http_post_with_prompt(event):
+    """Entry-point function for handling HTTP POST requests with a custom prompt.
+
+    This function requires a text prompt in the request body.
+
+    Example usage:
+    - URL: "http://localhost:9980/webhooks/<webhook_slug>"
+    - Curl command:
+      curl -X POST "<URL>" -H "Content-Type: text/plain" -d "Why do cats purr?"
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    body = event.data.body.bytes.decode("utf-8")
+
+    # Send the user's prompt to Claude with system instructions.
+    message = claude.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        system=(
+            "You are a helpful coding assistant who explains complex "
+            "programming concepts clearly and concisely."
+        ),
+        messages=[
+            {
+                "role": "user",
+                "content": body,
+            }
+        ],
+    )
+
+    # Print Claude's response in the AutoKitteh session's log.
+    print(f"User prompt: {body}")
+    print(f"\nClaude's response: {message.content[0].text}")
+    print(f"\nUsage statistics: {message.usage}")
+
+
+def on_http_get_demo(event):
+    """Entry-point function for HTTP GET requests with a default prompt.
+
+    This function doesn't require any input and demonstrates Claude
+    with a preset prompt.
+
+    Example usage:
+    - URL: "http://localhost:9980/webhooks/<webhook_slug>"
+    - Curl command:
+      curl -X GET "<URL>"
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    # Simple interaction with Claude using a default prompt.
+    message = claude.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": "Give me 3 interesting facts about cats.",
+            }
+        ],
+    )
+
+    # Print Claude's response in the AutoKitteh session's log.
+    print(f"Claude's response: {message.content[0].text}")
+    print(f"\nUsage statistics: {message.usage}")
+    print(f"Model: {message.model}")
+
+
+
+================================================
 FILE: samples/asana/README.md
 ================================================
 title: Asana sample
@@ -13727,6 +13873,144 @@ def list_deals(event):
 
 
 ================================================
+FILE: samples/notion/README.md
+================================================
+title: Notion sample
+description: Simple usage of the Notion API
+integrations: ["notion"]
+categories: ["Samples"]
+
+
+
+================================================
+FILE: samples/notion/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Notion.
+
+version: v1
+
+project:
+  name: notion_sample
+
+  vars:
+    - name: DATABASE_ID
+      value:
+
+  connections:
+    - name: notion_conn
+      integration: notion
+
+  triggers:
+    - name: create_page_webhook
+      type: webhook
+      event_type: post
+      call: program.py:create_page
+
+    - name: get_page_webhook
+      type: webhook
+      event_type: get
+      call: program.py:get_page
+
+
+
+================================================
+FILE: samples/notion/program.py
+================================================
+"""Demonstrates AutoKitteh's Notion integration for managing pages.
+
+This sample shows how to create pages in a Notion database
+and retrieve page information.
+
+API details:
+- Notion API: https://developers.notion.com/
+- Python client library: https://github.com/ramnes/notion-sdk-py
+
+This program isn't meant to cover all available functions and events.
+It merely showcases various illustrative, annotated, reusable examples.
+"""
+
+import os
+
+from autokitteh.notion import notion_client
+from notion_client.errors import APIResponseError
+
+
+notion = notion_client("notion_conn")
+
+DATABASE_ID = os.getenv("DATABASE_ID", "")
+
+
+def create_page(event):
+    """Create a new page in a Notion database.
+
+    This function creates a page with a title from the form data.
+
+    Example usage:
+    - URL: "http://localhost:9980/webhooks/<webhook_slug>"
+    - Curl command:
+      curl -X POST "<URL>" -d "title=My New Page"
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    form = event.data.body.form
+    page_title = form.get("title", "AutoKitteh Page")
+
+    try:
+        new_page = notion.pages.create(
+            parent={"database_id": DATABASE_ID},
+            properties={
+                "Name": {"title": [{"text": {"content": page_title}}]},
+            },
+        )
+        page_id = new_page["id"]
+        page_url = new_page["url"]
+        print(f"Page '{page_title}' created successfully!")
+        print(f"Page ID: {page_id}")
+        print(f"Page URL: {page_url}")
+    except APIResponseError as e:
+        print(f"Error: {e}")
+
+
+def get_page(event):
+    """Retrieve information about a Notion page.
+
+    This function retrieves page details using a page ID from query parameters.
+
+    Example usage:
+    - URL: "http://localhost:9980/webhooks/<webhook_slug>"
+    - Curl command:
+      curl "<URL>?page_id=<PAGE_ID>"
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    page_id = event.data.url.query.get("page_id")
+
+    if not page_id:
+        print("Error: page_id parameter is required")
+        return
+
+    try:
+        # Retrieve the page
+        page = notion.pages.retrieve(page_id)
+
+        # Extract and display page information
+        print(f"Page ID: {page['id']}")
+        print(f"Created time: {page['created_time']}")
+        print(f"Last edited: {page['last_edited_time']}")
+        print(f"Page URL: {page['url']}")
+
+        # Display properties if available
+        if "properties" in page:
+            print(f"\nPage properties: {page['properties']}")
+    except APIResponseError as e:
+        print(f"Error: {e}")
+
+
+
+================================================
 FILE: samples/openai_chatgpt/README.md
 ================================================
 title: OpenAI ChatGPT sample
@@ -13836,6 +14120,100 @@ def on_http_post(event):
     for choice in resp.choices:
         print(choice.message.content)
     print(f"Usage: `{resp.usage}`")
+
+
+
+================================================
+FILE: samples/pipedrive/README.md
+================================================
+title: Pipedrive sample
+description: Simple usage of the Pipedrive API
+integrations: ["pipedrive"]
+categories: ["Samples"]
+
+
+
+================================================
+FILE: samples/pipedrive/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Pipedrive.
+
+version: v1
+
+project:
+  name: pipedrive_sample
+
+  connections:
+    - name: pipedrive_conn
+      integration: pipedrive
+
+  triggers:
+    - name: create_deal_webhook
+      type: webhook
+      event_type: post
+      call: program.py:create_deal
+
+    - name: fetch_all_deals_webhook
+      type: webhook
+      event_type: get
+      call: program.py:fetch_all_deals
+
+
+
+================================================
+FILE: samples/pipedrive/program.py
+================================================
+"""Demonstrates AutoKitteh's Pipedrive integration for managing deals.
+
+This sample shows how to create deals in Pipedrive
+and retrieve deal information.
+
+API details:
+- Pipedrive API: https://developers.pipedrive.com/
+- Python client library: https://github.com/pipedrive/client-python
+
+This program isn't meant to cover all available functions and events.
+It merely showcases various illustrative, annotated, reusable examples.
+"""
+
+from autokitteh.pipedrive import pipedrive_client
+
+
+pipedrive = pipedrive_client("pipedrive_conn")
+
+
+def create_deal(event):
+    """Create a new deal in Pipedrive."""
+    form = event.data.body.form
+    deal_title = form.get("title", "AutoKitteh Deal")
+    deal_value = form.get("value", "1000")
+
+    # Create a new deal
+    response = pipedrive.deals.create_deal(
+        {
+            "title": deal_title,
+            "value": deal_value,
+        }
+    )
+
+    if "success" in response and response["success"]:
+        deal = response["data"]
+        deal_id = deal["id"]
+        deal_title = deal["title"]
+        print(f"Deal '{deal_title}' created successfully!")
+        print(f"Deal ID: {deal_id}")
+        print(f"Value: {deal.get('value')} {deal.get('currency')}")
+    else:
+        print(f"Error creating deal: {response}")
+
+
+def fetch_all_deals(_):
+    """Retrieve information about all Pipedrive deals."""
+    response = pipedrive.deals.get_all_deals()
+    deals = response["data"]
+    for deal in deals:
+        print(deal["title"], "(worth", deal["value"], deal["currency"] + ")")
 
 
 
