@@ -12,7 +12,7 @@ tags: ["webhook_handling", "sync_responses"]
 
 Gocat is a simple "go links" URL shortener and redirector that uses Google Sheets as its data store. It maps short keys to full URLs via webhook, providing an easy way to manage and share shortened links.
 
-![demo](https://raw.githubusercontent.com/autokitteh/kittehub/main/gocat/demo.gif)
+![demo](https://autokitteh-public-resources.s3.us-east-1.amazonaws.com/kittehub/gocat.gif)
 
 ## What are Go Links?
 
@@ -205,9 +205,7 @@ Run checks locally:
 make
 ```
 
-## Deployment
-
-To deploy to AutoKitteh:
+Deploying from the command line is convenient when deploying locally:
 
 1. **Install the CLI**: https://docs.autokitteh.com/get_started/install
 2. **Authenticate**: `ak auth login`

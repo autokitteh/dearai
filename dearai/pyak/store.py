@@ -1,6 +1,6 @@
 from collections.abc import MutableMapping
-from typing import Any
 from enum import StrEnum
+from typing import Any
 _local_dev_store = {}
 
 
@@ -56,6 +56,23 @@ def get_value(key: str) ->Any:
 
     Returns:
         Any: The stored value, or None if not found.
+    """
+    ...
+
+
+def check_and_set_value(key: str, expected_value: Any, new_value: Any) ->bool:
+    """Check and set a stored value.
+
+    This operation is atomic.
+
+    Works both for durable and non-durable sessions.
+
+    Args:
+        key: Key of the value to set.
+        expected_value: Expected current value.
+        new_value: New value to store if the current value matches the expected value.
+    Returns:
+        bool: True if the value was set, False otherwise.
     """
     ...
 
