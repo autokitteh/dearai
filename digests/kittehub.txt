@@ -25,7 +25,6 @@ Directory structure:
     ├── anthropic_slack_thread_tldr/
     │   ├── README.md
     │   ├── autokitteh.yaml
-    │   ├── requirements.txt
     │   └── workflow.py
     ├── auth0_to_hubspot/
     │   ├── README.md
@@ -37,6 +36,18 @@ Directory structure:
     │   ├── autokitteh.yaml
     │   ├── program.py
     │   └── request_modal.json.txt
+    ├── carbcat/
+    │   ├── README.md
+    │   ├── _gendata.sh
+    │   ├── _raw.zip
+    │   ├── ai.py
+    │   ├── autokitteh.yaml
+    │   ├── data.py
+    │   ├── handlers.py
+    │   ├── Makefile
+    │   ├── requirements.txt
+    │   ├── test_ai.py
+    │   └── test_data.py
     ├── categorize_emails/
     │   ├── README.md
     │   ├── autokitteh.yaml
@@ -271,6 +282,11 @@ Directory structure:
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
+    │   ├── linear/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   ├── program.py
+    │   │   └── queries.py
     │   ├── notion/
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
@@ -280,6 +296,10 @@ Directory structure:
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
     │   ├── pipedrive/
+    │   │   ├── README.md
+    │   │   ├── autokitteh.yaml
+    │   │   └── program.py
+    │   ├── reddit/
     │   │   ├── README.md
     │   │   ├── autokitteh.yaml
     │   │   └── program.py
@@ -1450,7 +1470,7 @@ FILE: anthropic_slack_thread_tldr/autokitteh.yaml
 # of an AutoKitteh sample project that demonstrates integration with
 # Gmail, ChatGPT, and Slack.
 
-version: v1
+version: v2
 
 project:
   name: anthropic_slack_thread_tldr
@@ -1483,16 +1503,9 @@ project:
 
 
 ================================================
-FILE: anthropic_slack_thread_tldr/requirements.txt
-================================================
-anthropic
-
-
-
-================================================
 FILE: anthropic_slack_thread_tldr/workflow.py
 ================================================
-"""Main workflow logic."""
+"""Workflow to summarize Slack threads using Anthropic's API."""
 
 from os import getenv
 
@@ -1500,67 +1513,73 @@ from anthropic import Anthropic
 from autokitteh.slack import slack_client
 
 
+_CMD = "!tldr"
+
 slack_client = slack_client("slack")
 
 anthropic_client = Anthropic(api_key=getenv("ANTHROPIC_API_KEY"))
 
 _MAX_TOKENS = int(getenv("MAX_TOKENS", 1000))
-_MODEL = getenv("MODEL", "claude-3-5-haiku-20241022")
 
 
 def on_slack_thread_message(event):
-    """Run the entire interaction with the user."""
-    # `ts` is the timestamp of the message that triggered this event.
-    # `thread_ts` is the timestamp of the parent message.
+    text = event.data.text.strip()
+
+    if not (text == _CMD or text.startswith(_CMD + " ")):
+        print("irrelevant")
+        return
+
+    focus, q = "", text[len(_CMD) :].strip()
+    if q:
+        focus = f"Focus on: {q}"
+        print(focus)
+
     ch, ts, thread_ts = event.data.channel, event.data.ts, event.data.thread_ts
 
-    # give an immediate feedback.
-    slack_client.reactions_add(
-        channel=ch,
-        timestamp=ts,
-        name="thinking_face",
-    )
+    try:
+        slack_client.reactions_add(channel=ch, timestamp=ts, name="thinking_face")
 
-    # get the entire thread.
-    resp = slack_client.conversations_replies(channel=ch, ts=thread_ts)
-    msgs = resp.get("messages", [])
+        msgs = slack_client.conversations_replies(channel=ch, ts=thread_ts).get(
+            "messages", []
+        )
 
-    print(f"in: {len(msgs)} messages")
+        msgs = "\n".join(f"- {msg['user']}: {msg['text']}" for msg in msgs)
 
-    # ask claude to summarize the thread.
-    message = anthropic_client.messages.create(
-        max_tokens=_MAX_TOKENS,
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    "Compose a summary of the Slack conversation in this thread "
-                    "using Slack mentions and markdown."
-                    "Be concise - just emit bullet points."
-                    "Here are the messages in the thread:\n"
-                    "\n".join(f"\n- {msg['user']} said: {msg['text']}" for msg in msgs)
-                ),
-            }
-        ],
-        model=_MODEL,
-    )
+        message = anthropic_client.messages.create(
+            max_tokens=_MAX_TOKENS,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+Compose a summary of the Slack conversation in this thread.
+{focus}
 
-    print(f"claude: {message}")
+Use Slack mentions.
 
-    content = "".join(item.text for item in message.content if item.type == "text")
+These are the messages in the thread:
+{msgs}""",
+                }
+            ],
+            model="claude-3-5-sonnet-latest",
+        )
 
-    print(f"tl;dr: {content}")
+        summary = "".join(
+            block.text for block in message.content if block.type == "text"
+        )
 
-    # post the summary.
-    slack_client.chat_postMessage(
-        channel=ch,
-        thread_ts=thread_ts,
-        text=f"{content}",
-    )
+        print(summary)
 
-    # remove the thinking_face and add ok_hand, to indicate completion.
-    slack_client.reactions_remove(channel=ch, timestamp=ts, name="thinking_face")
-    slack_client.reactions_add(channel=ch, timestamp=ts, name="ok_hand")
+        slack_client.reactions_remove(channel=ch, timestamp=ts, name="thinking_face")
+        slack_client.reactions_add(channel=ch, timestamp=ts, name="ok_hand")
+
+        slack_client.chat_postMessage(
+            channel=ch,
+            thread_ts=thread_ts,
+            text=summary,
+        )
+    except:
+        slack_client.reactions_add(channel=ch, timestamp=ts, name="scream")
+        raise
 
 
 
@@ -1998,6 +2017,724 @@ FILE: break_glass/request_modal.json.txt
     }
   ]
 }
+
+
+
+================================================
+FILE: carbcat/README.md
+================================================
+title: CarbCat - AI WhatsApp Carb Tracker
+description: AI-powered WhatsApp chatbot that tracks carbohydrate content in food using USDA database
+integrations: ["twilio"]
+categories: ["AI", "Productivity"]
+tags:
+  ["user_interactions", "webhook_handling", "data_processing", "notifications"]
+
+
+
+================================================
+FILE: carbcat/_gendata.sh
+================================================
+#!/bin/bash
+
+set -euo pipefail
+
+if [ ! -f _raw.json ]; then
+       curl https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip > _raw.zip
+       unzip _raw.zip
+       mv FoodData_Central_sr_legacy_food_json_2018-04.json _raw.json
+fi
+
+
+jq -r '.SRLegacyFoods | sort_by(.description) | .[] | 
+       .description as $food | 
+       ((.foodNutrients[] | select(.nutrient.number == "205") | .amount) // "N/A") as $carbs |
+       .foodPortions[]? | 
+       [$food, $carbs, .amount, .modifier, .gramWeight] | @csv' _raw.json > data.csv
+
+rm -f data.csv.gz
+
+gzip data.csv
+
+
+
+================================================
+FILE: carbcat/_raw.zip
+================================================
+[Non-text file]
+
+
+================================================
+FILE: carbcat/ai.py
+================================================
+"""AI interaction module for food id and carbohydrate calculation using Claude."""
+
+from dataclasses import asdict
+from dataclasses import dataclass
+import json
+from os import getenv
+import typing
+
+from anthropic.types.beta import BetaMessageParam
+
+from anthropic import Anthropic
+from anthropic import beta_tool
+from autokitteh.anthropic import anthropic_client
+from autokitteh.errors import ConnectionInitError
+from data import find_foods_by_name
+from data import Food
+from data import get_food_by_index
+from data import Portion
+
+
+_MODEL = getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+
+try:
+    _client = anthropic_client("anthropic")
+except ConnectionInitError:
+    # Fallback to basic client if no special config is found, e.g. for local testing.
+    _client = Anthropic(api_key=getenv("ANTHROPIC_API_KEY"))
+
+_SYSTEM_PROMPT = """
+You are a helpful assistant that determines what food item the user is referring to.
+You also need to determine how much, in grams, did the user eat.
+
+The food item and the portion size must match one of the items in the database.
+To find the food item, use the `find_foods_by_name` tool. This will return a list of
+possible foods, along with known portion sizes. You must use this information to
+determine the food item and the number of portions that the user are.
+
+If you cannot determine the food item, or if the food item is not in the database,
+respond with a message instructing the user to improve their answer.
+
+If the user specifies more than one food item, consider only the main one, and instruct
+them to ask separately for each food item.
+
+Use the `update` tool to update the context with the food item index, portion index,
+and amount of portions. NEVER tell the user you're updating the context - this is an
+internal detail that the user should not be aware of.
+
+The `food_index` is the field `index` in the foods you receive from the
+`find_foods_by_name` tool. The `portion_index` is the index of the portion in the
+`portions` list in the relevant food item. The `amount` is the number of portions
+consumed.
+
+You MUST use the update tool to set `food_index`, `portion_index`, and `amount` to
+non-null values, and set `done` to true, when you have determined the food item
+and the amount in portions. You MUST NOT set `done` to true unless all the other
+fields are set to non-null values.
+
+So far this is what you gathered: {ctx}
+"""
+
+
+@dataclass(frozen=True, kw_only=True)
+class _InteractionContext:
+    """Agent interaction context."""
+
+    food_index: int | None
+    """Index of the food in the database."""
+
+    portion_index: int | None
+    """Index of the portion in the food's portions list."""
+
+    amount: float | None
+    """Number of portions consumed."""
+
+    done: bool = False
+    """Whether the determination is complete. Set this only if all the other fields are set."""  # noqa: E501
+
+    def adopt(self, other: "_InteractionContext") -> "_InteractionContext":
+        """Adopt non-None values from another context."""
+
+        def bora(a, b):
+            return b if b is not None else a
+
+        return _InteractionContext(
+            food_index=bora(self.food_index, other.food_index),
+            portion_index=bora(self.portion_index, other.portion_index),
+            amount=bora(self.amount, other.amount),
+            done=other.done or self.done,
+        )
+
+    @property
+    def complete(self) -> bool:
+        """Whether the context is complete."""
+        return (
+            self.food_index is not None
+            and self.portion_index is not None
+            and self.amount is not None
+            and self.done
+        )  # noqa: E501
+
+
+@beta_tool
+def _find_foods_by_name_tool(name: str) -> str:
+    return json.dumps(
+        [
+            {"food": asdict(food), "score": score}
+            for food, score in find_foods_by_name(name)
+        ]
+    )
+
+
+def interact(
+    q0: str | None,
+    get_next: typing.Callable[[], str],
+    say: typing.Callable[[str], None],
+) -> tuple[Food, Portion, float] | None:
+    """Determine the food and grams from the history and current context.
+
+    Args:
+        q0: initial message from the user.
+        get_next: function to get the next message from the user.
+        say: function to say something to the user.
+
+    Returns:
+        A tuple of (context, history, response).
+    """
+    ctx = _InteractionContext(food_index=None, portion_index=None, amount=None)
+
+    @beta_tool
+    def update_tool(
+        food_index: int | None = None,
+        portion_index: int | None = None,
+        amount: float | None = None,
+        done: bool = False,
+    ) -> str:
+        """Update the determination context with new information.
+
+        Args:
+            ctx: The current determination context.
+        """
+        nonlocal ctx
+
+        ctx1 = _InteractionContext(
+            food_index=food_index,
+            portion_index=portion_index,
+            amount=amount,
+            done=done,
+        )
+
+        ctx = ctx.adopt(ctx1) if ctx else ctx1
+
+        return f"Context updated: {ctx}"
+
+    q = q0
+    history = []
+
+    while not ctx.complete:
+        if ctx.done:
+            q = "you marked as done, but you did not set all the fields. please fix."
+
+        if not q:
+            q = get_next()
+
+        history.append(BetaMessageParam(role="user", content=q.strip()))
+
+        q = None
+
+        runner = _client.beta.messages.tool_runner(
+            model=_MODEL,
+            max_tokens=1024,
+            system=_SYSTEM_PROMPT.format(ctx=ctx),
+            messages=history,
+            tools=[_find_foods_by_name_tool, update_tool],
+        )
+
+        # Collect all messages from the runner
+        # The runner handles tool execution internally and yields messages
+        final_message = None
+
+        for msg in runner:
+            final_message = msg
+
+            for block in msg.content:
+                match block.type:
+                    case "text":
+                        say(block.text)
+                    case "tool_use":
+                        match block.name:
+                            case "_find_foods_by_name_tool":
+                                name = typing.cast(dict, block.input).get("name", "")
+                                say(
+                                    f"(Looking for {name} in the database...)"  # noqa: E501
+                                )
+                            case _:
+                                pass
+                    case _:
+                        pass
+
+        # Only add the final assistant message to history
+        # Don't add intermediate tool_use/tool_result messages
+        if final_message:
+            history.append(
+                BetaMessageParam(role=final_message.role, content=final_message.content)
+            )
+
+    if ctx.food_index is None or ctx.portion_index is None or ctx.amount is None:
+        return None
+
+    food = get_food_by_index(ctx.food_index)
+    return food, food.portions[ctx.portion_index], ctx.amount
+
+
+
+================================================
+FILE: carbcat/autokitteh.yaml
+================================================
+version: v2
+
+project:
+  name: carbcat
+
+  vars:
+    - name: TWILIO_PHONE_NUMBER
+      value: "+14155238886"
+
+  connections:
+    - name: twilio
+      integration: twilio
+    - name: anthropic
+      integration: anthropic
+
+  triggers:
+    - name: whatsapp_message
+      type: webhook
+      call: handlers.py:on_whatsapp_message
+
+
+
+================================================
+FILE: carbcat/data.py
+================================================
+"""Data module for CarbCat."""
+
+import csv
+from dataclasses import dataclass
+from dataclasses import replace
+import gzip
+from io import StringIO
+from pathlib import Path
+import re
+
+import rapidfuzz
+
+
+@dataclass(frozen=True, kw_only=True)
+class Portion:
+    """Class representing a portion size."""
+
+    amount: float
+    modifier: str
+    gram_weight: float
+
+
+@dataclass(frozen=True, kw_only=True)
+class Food:
+    """Class representing a row in the data."""
+
+    index: int
+    name: str
+    carbs: float  # per 100g
+    portions: list[Portion]
+
+
+_foods: list[Food] = []
+
+
+def _read() -> StringIO:
+    """Load raw compressed data."""
+    with Path("data.csv.gz").open("rb") as f:
+        compressed = f.read()
+
+    return StringIO(gzip.decompress(compressed).decode("utf-8"))
+
+
+def _load() -> list[Food]:
+    """Load food data from CSV file."""
+    global _foods
+
+    if not _foods:
+        prev: Food | None = None
+
+        r = csv.reader(_read())
+
+        for i, row in enumerate(r):
+            curr = Food(
+                index=len(_foods),
+                name=row[0],
+                carbs=float(row[1]),
+                portions=[
+                    Portion(
+                        amount=float(row[2]),
+                        modifier=row[3],
+                        gram_weight=float(row[4]),
+                    )
+                ],
+            )
+
+            if prev and prev.name == curr.name:
+                if prev.carbs != curr.carbs:
+                    raise ValueError(
+                        f"line #{i + 1}: duplicate food with different carbs: {prev} != {curr}"  # noqa: E501
+                    )
+
+                _foods[-1] = replace(
+                    prev,
+                    index=prev.index,
+                    portions=prev.portions + [curr.portions[0]],
+                )
+            else:
+                prev = curr
+                _foods.append(curr)
+
+    return _foods
+
+
+def get_food_by_index(idx: int) -> Food:
+    """Get food by its index in the database.
+
+    Args:
+        idx: Index of the food.
+
+    Returns:
+        Food object.
+
+    Raises:
+        IndexError: If the index is out of range.
+    """
+    foods = _load()
+    if idx < 0 or idx >= len(foods):
+        raise IndexError(f"Food index {idx} out of range")
+    return foods[idx]
+
+
+def find_foods_by_name(q: str, top_n=100) -> list[tuple[Food, float]]:
+    """Search for foods by name and return top N matches.
+
+    Args:
+        q: The food name to search for (str)
+        top_n: Number of top matches to return (default: 5)
+
+    Returns:
+        List of foods and their associated matching scores
+    """
+    foods = _load()
+    food_names = [food.name for food in foods]
+
+    results = [
+        (_calculate_food_name_score(q, name), idx)
+        for idx, name in enumerate(food_names)
+    ]
+
+    # Sort by combined score
+    results.sort(key=lambda x: x[0], reverse=True)
+
+    idxs = _smart_cutoff(results)
+
+    # Create a mapping from food index to score
+    idx_to_score = {idx: score for score, idx in results}
+
+    return [(foods[i], idx_to_score[i]) for i in idxs[:top_n]]
+
+
+def _calculate_food_name_score(query: str, food_name: str) -> float:
+    """Calculate relevance score for a food name match.
+
+    Args:
+        query: The search query
+        food_name: The food name to score
+
+    Returns:
+        Combined relevance score
+    """
+    name_lower = food_name.lower()
+    q_lower = query.lower()
+
+    # Multiple scoring factors
+    wratio_score = rapidfuzz.fuzz.WRatio(query, food_name)
+    ratio_score = rapidfuzz.fuzz.ratio(q_lower, name_lower)
+    token_sort = rapidfuzz.fuzz.token_sort_ratio(q_lower, name_lower)
+
+    # Split by common delimiters
+    words = re.split(r"[\s,\-\(\)]+", name_lower)
+
+    # Check for exact word match and position
+    has_exact_word = False
+    is_first_word = False
+    word_position = len(words)  # Default to end
+
+    for i, word in enumerate(words):
+        if word in [q_lower, q_lower + "s", q_lower + "es", q_lower + "ies"]:
+            has_exact_word = True
+            word_position = i
+            if i == 0:
+                is_first_word = True
+            break
+
+    # Penalize longer names
+    length_penalty = 100 / (1 + len(food_name) / 20)
+
+    # Penalize names with many words
+    word_count_penalty = 100 / (1 + len(words) / 3)
+
+    # Position bonus - earlier position = higher score
+    # First word is MUCH more important (the food IS that thing)
+    # vs later words (the food CONTAINS that thing)
+    position_bonus = 0
+    if has_exact_word:
+        if is_first_word:
+            position_bonus = 60  # Huge boost for first word (e.g., "Apples, raw")
+        elif word_position == 1:
+            position_bonus = 5  # Small boost for second word (e.g., "Strudel, apple")
+        elif word_position == 2:
+            position_bonus = 2  # Tiny boost for third word
+
+    # Calculate combined score
+    if has_exact_word:
+        combined_score = (
+            wratio_score * 0.25
+            + ratio_score * 0.25
+            + token_sort * 0.15
+            + length_penalty * 0.10
+            + word_count_penalty * 0.10
+            + position_bonus  # Position is very important!
+        )
+    else:
+        combined_score = wratio_score * 0.5 + ratio_score * 0.3 + token_sort * 0.2
+
+    # Check if it's a substring match but NOT a word match
+    is_substring_only = q_lower in name_lower and not has_exact_word
+    if is_substring_only:
+        combined_score *= 0.5  # Heavy penalty for substring-only matches
+
+    return combined_score
+
+
+def _smart_cutoff(results: list[tuple[float, int]]) -> list[int]:
+    """Intelligently determine where to cut off search results based on score drops.
+
+    Args:
+        results: List of tuples (score, index) sorted by score descending
+
+    Returns:
+        List of indexes to include in final results
+    """
+    if not results:
+        return []
+
+    # Always include at least the top result
+    if len(results) == 1:
+        return [results[0][1]]
+
+    top_score = results[0][0]
+
+    # Calculate score drops between consecutive results
+    score_drops = []
+    for i in range(len(results) - 1):
+        drop = results[i][0] - results[i + 1][0]
+        score_drops.append((i, drop))
+
+    # Find significant drops (> 2 points)
+    significant_drops = [(i, drop) for i, drop in score_drops if drop > 2]
+
+    if significant_drops:
+        # Sort by drop size to find the largest
+        significant_drops.sort(key=lambda x: x[1], reverse=True)
+        largest_drop_idx, largest_drop_size = significant_drops[0]
+
+        # Cut at the largest significant drop if it happens reasonably early
+        # and is substantial enough
+        if largest_drop_idx < 20 and largest_drop_size > 2:
+            cutoff = largest_drop_idx + 1
+            return [idx for _, idx in results[:cutoff]]
+
+    # If no significant drops, filter by relative score to top result
+    # Cut off results that drop below 85% of top score
+    cutoff = len(results)
+    for i, (score, _) in enumerate(results):
+        # If score drops below 85% of top score, cut there
+        # But keep at least 5 results
+        if i >= 5 and score < (top_score * 0.85):
+            cutoff = i
+            break
+
+    return [idx for _, idx in results[:cutoff]]
+
+
+
+================================================
+FILE: carbcat/handlers.py
+================================================
+"""Handlers for CarbCat events."""
+
+from os import getenv
+
+import ai
+from autokitteh import del_value, Event, get_value, next_event, set_value, subscribe
+from autokitteh.twilio import twilio_client
+
+
+_twilio = twilio_client("twilio")
+
+_TWILIO_PHONE_NUMBER = getenv("TWILIO_PHONE_NUMBER")
+
+
+def _respond(to: str, msg: str) -> None:
+    resp = _twilio.messages.create(
+        body=msg,
+        from_=f"whatsapp:{_TWILIO_PHONE_NUMBER}",
+        to=f"{to}",
+    )
+
+    print(f"me: {msg}\n-> twilio: {resp}")
+
+
+def on_whatsapp_message(event: Event):
+    src = event.data.body.form.get("From")
+    body = event.data.body.form.get("Body", "").strip()
+
+    print(f"@{src}: {body}")
+
+    if not src:
+        print("no source specified.")
+        return
+
+    if not body:
+        print("no body specified.")
+        return
+
+    if body == "/reset":
+        del_value(src)
+        _respond(src, "↺")
+        return
+
+    if get_value(src):
+        print(f"already processing a request for {src}, ignoring new message")
+        return
+
+    set_value(src, True)
+
+    try:
+        _handle(body, src)
+    except Exception:
+        _respond(src, "Error processing your request, please try again later.")
+        raise
+    finally:
+        del_value(src)
+
+
+def _handle(body: str, to: str) -> None:
+    s = subscribe("whatsapp_message", filter=f"data.body.form.From.startsWith('{to}')")
+
+    def get_next() -> str:
+        print(f"waiting for next user message from {to}...")
+        evt = next_event(s)
+        return evt["body"]["form"]["Body"]
+
+    def say(msg: str) -> None:
+        return _respond(to, msg)
+
+    resp = ai.interact(body, get_next, say)
+    if resp is None:
+        say("Could not determine food item. Please try again.")
+        return
+
+    food, portion, amount = resp
+
+    total_carbs = amount * food.carbs * (portion.gram_weight / 100.0)
+
+    say(
+        f"{amount} x {portion.amount} {portion.modifier} of {food.name} "
+        f"({portion.gram_weight}g each) contains approximately "
+        f"{total_carbs:.2f}g of carbohydrates."
+    )
+
+
+
+================================================
+FILE: carbcat/Makefile
+================================================
+UVX=uvx --with-requirements requirements.txt --with pytest
+
+.PHONY: all
+all: lint typecheck test format
+
+.PHONY: lint
+lint:
+	$(UVX) ruff check --config ../pyproject.toml --ignore I001
+
+.PHONY: format
+format:
+	$(UVX) ruff format --check --config ../pyproject.toml
+
+.PHONY: typecheck
+typecheck:
+	$(UVX) mypy --follow-untyped-imports  .
+
+.PHONY: test
+test:
+	$(UVX) pytest -s
+
+.PHONY: data
+data:
+	./_gendata.sh
+
+.PHONY: deploy
+deploy:
+	ak deploy --manifest autokitteh.yaml
+
+
+
+================================================
+FILE: carbcat/requirements.txt
+================================================
+anthropic==0.71.0
+autokitteh
+rapidfuzz
+
+
+
+================================================
+FILE: carbcat/test_ai.py
+================================================
+"""Tests for ai.py, this is interactive so not run by default."""
+
+import ai
+import pytest
+
+
+@pytest.mark.skip(reason="interactive test, disable skip to play around")
+def test_interact():
+    # Requires ANTHROPIC_API_KEY defined in env.
+
+    def get_next() -> str:
+        return input("> ")
+
+    print(ai.interact("", get_next, print))
+
+
+
+================================================
+FILE: carbcat/test_data.py
+================================================
+"""Tests for data module food database loading and search functionality."""
+
+import data
+
+
+def test_load():
+    foods = data._load()
+    assert foods
+    assert all(foods[i].index == i for i in range(len(foods)))
+
+
+def test_find_foods_by_name():
+    results = data.find_foods_by_name("apple")
+    print("\n".join(str(x) for x in results))
+    assert results
+    assert all(f.name.startswith("Apple") for f, _ in results)
 
 
 
@@ -12094,7 +12831,7 @@ FILE: samples/anthropic/autokitteh.yaml
 # of an AutoKitteh project that demonstrates integration with
 # Anthropic Claude.
 
-version: v1
+version: v2
 
 project:
   name: anthropic_sample
@@ -12108,6 +12845,7 @@ project:
       type: webhook
       event_type: post
       call: program.py:on_http_post_with_prompt
+      is_sync: true
 
     - name: on_http_get_demo
       type: webhook
@@ -12133,6 +12871,7 @@ This program isn't meant to cover all available functions and events.
 It merely showcases various illustrative, annotated, reusable examples.
 """
 
+from autokitteh import http_outcome
 from autokitteh.anthropic import anthropic_client
 
 
@@ -12176,6 +12915,8 @@ def on_http_post_with_prompt(event):
     print(f"User prompt: {body}")
     print(f"\nClaude's response: {message.content[0].text}")
     print(f"\nUsage statistics: {message.usage}")
+
+    http_outcome(status_code=200, body=message.content[0].text)
 
 
 def on_http_get_demo(event):
@@ -13873,6 +14614,264 @@ def list_deals(event):
 
 
 ================================================
+FILE: samples/linear/README.md
+================================================
+title: Linear sample
+description: Simple usage of the Linear API
+integrations: ["linear"]
+categories: ["Samples"]
+
+
+
+================================================
+FILE: samples/linear/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Linear.
+
+version: v2
+
+project:
+  name: linear_sample
+
+  vars:
+    - name: TEAM_ID
+      value:
+
+  connections:
+    - name: linear_conn
+      integration: linear
+
+  triggers:
+    - name: create_issue_webhook
+      type: webhook
+      event_type: post
+      call: program.py:create_issue
+
+    - name: get_issue_webhook
+      type: webhook
+      event_type: get
+      call: program.py:get_issue
+
+    - name: update_issue_webhook
+      type: webhook
+      event_type: post
+      call: program.py:update_issue
+
+
+
+================================================
+FILE: samples/linear/program.py
+================================================
+"""Demonstrates AutoKitteh's Linear integration for managing issues.
+
+This sample shows how to create issues in Linear and retrieve issue information.
+
+This program isn't meant to cover all available functions and events.
+It merely showcases various illustrative, annotated, reusable examples.
+"""
+
+import os
+
+from autokitteh.linear import linear_client
+import queries
+
+
+linear = linear_client("linear_conn")
+
+TEAM_ID = os.getenv("TEAM_ID", "")  # Must be UUID type.
+
+
+def create_issue(event):
+    """Create a new issue in Linear.
+
+    This function creates an issue with a title and optional description from form data.
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    if not TEAM_ID:
+        print("Error: TEAM_ID environment variable is not set")
+        return
+
+    form = event.data.body.form
+    issue_title = form.get("title", "AutoKitteh Issue")
+    description = form.get("description", "Created by AutoKitteh")
+
+    variables = {"teamId": TEAM_ID, "title": issue_title, "description": description}
+
+    response = linear.post(
+        "https://api.linear.app/graphql/",
+        json={"query": queries.CREATE_ISSUE_QUERY, "variables": variables},
+    )
+    response.raise_for_status()
+
+    result = response.json()
+    print(result)
+
+    if "data" in result and result["data"] is not None:
+        issue = result["data"]["issueCreate"]["issue"]
+        issue_id = issue["id"]
+        issue_url = issue["url"]
+
+        print(f"Issue '{issue_title}' created successfully!")
+        print(f"Issue ID: {issue_id}")
+        print(f"Issue URL: {issue_url}")
+    else:
+        print("Failed to create issue.")
+        print("Error:", result.get("errors"))
+
+
+def get_issue(event):
+    """Retrieve information about a Linear issue.
+
+    This function retrieves issue details using an issue ID from query parameters.
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    issue_id = event.data.url.query.get("issue_id")
+    if not issue_id:
+        print("Error: issue_id parameter is required")
+        return
+
+    variables = {"id": issue_id}
+    response = linear.post(
+        "https://api.linear.app/graphql/",
+        json={"query": queries.GET_ISSUE_QUERY, "variables": variables},
+    )
+    response.raise_for_status()
+
+    result = response.json()
+    print(result)
+
+    if "data" in result and result["data"] is not None:
+        issue = result["data"]["issue"]
+        print(f"""Issue ID: {issue["id"]}
+Title: {issue["title"]}
+Description: {issue["description"]}
+State: {issue["state"]["name"]}
+Priority: {issue["priority"]}
+Created: {issue["createdAt"]}
+Updated: {issue["updatedAt"]}
+URL: {issue["url"]}""")
+
+        if issue["assignee"]:
+            print(f"Assignee: {issue['assignee']['name']}")
+    else:
+        print("Failed to retrieve issue.")
+        print("Error:", result.get("errors"))
+
+
+def update_issue(event):
+    """Update an existing Linear issue.
+
+    This function updates an issue's title and/or state.
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    form = event.data.body.form
+    issue_id = form.get("issue_id")
+    new_title = form.get("title")
+    state_id = form.get("state_id")
+
+    if not issue_id:
+        print("Error: issue_id parameter is required")
+        return
+
+    # Build update payload.
+    update_data = {}
+    if new_title:
+        update_data["title"] = new_title
+    if state_id:
+        update_data["stateId"] = state_id
+
+    variables = {"id": issue_id, "input": update_data}
+    response = linear.post(
+        "https://api.linear.app/graphql/",
+        json={"query": queries.UPDATE_ISSUE_QUERY, "variables": variables},
+    )
+    response.raise_for_status()
+
+    result = response.json()
+    print(result)
+
+    if "data" in result and result["data"] is not None:
+        issue = result["data"]["issueUpdate"]["issue"]
+        print(f"Issue {issue_id} updated successfully!")
+        print(f"New title: {issue['title']}")
+    else:
+        print("Failed to update issue.")
+        print("Error:", result.get("errors"))
+
+
+
+================================================
+FILE: samples/linear/queries.py
+================================================
+"""GraphQL queries for interacting with Linear issues.
+
+This module contains query strings for creating and managing issues via the Linear API.
+"""
+
+CREATE_ISSUE_QUERY = """
+mutation CreateIssue($teamId: String!, $title: String!, $description: String) {
+    issueCreate(
+        input: {
+            teamId: $teamId
+            title: $title
+            description: $description
+        }
+    ) {
+        success
+        issue {
+            id
+            url
+        }
+    }
+}
+"""
+
+
+GET_ISSUE_QUERY = """
+query GetIssue($id: String!) {
+    issue(id: $id) {
+        id
+        title
+        description
+        state {
+            name
+        }
+        priority
+        createdAt
+        updatedAt
+        url
+        assignee {
+            name
+        }
+    }
+}
+"""
+
+UPDATE_ISSUE_QUERY = """
+mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
+    issueUpdate(
+        id: $id
+        input: $input
+    ) {
+        success
+        issue {
+            id
+            title
+        }
+    }
+}
+"""
+
+
+
+================================================
 FILE: samples/notion/README.md
 ================================================
 title: Notion sample
@@ -13888,7 +14887,7 @@ FILE: samples/notion/autokitteh.yaml
 # This YAML file is a declarative manifest that describes the setup
 # of an AutoKitteh project that demonstrates integration with Notion.
 
-version: v1
+version: v2
 
 project:
   name: notion_sample
@@ -14139,7 +15138,7 @@ FILE: samples/pipedrive/autokitteh.yaml
 # This YAML file is a declarative manifest that describes the setup
 # of an AutoKitteh project that demonstrates integration with Pipedrive.
 
-version: v1
+version: v2
 
 project:
   name: pipedrive_sample
@@ -14214,6 +15213,124 @@ def fetch_all_deals(_):
     deals = response["data"]
     for deal in deals:
         print(deal["title"], "(worth", deal["value"], deal["currency"] + ")")
+
+
+
+================================================
+FILE: samples/reddit/README.md
+================================================
+title: Reddit sample
+description: Simple usage of the Reddit API
+integrations: ["reddit"]
+categories: ["Samples"]
+
+
+
+================================================
+FILE: samples/reddit/autokitteh.yaml
+================================================
+# This YAML file is a declarative manifest that describes the setup
+# of an AutoKitteh project that demonstrates integration with Reddit.
+
+version: v2
+
+project:
+  name: reddit_sample
+
+  vars:
+    - name: SUBREDDIT
+      value:
+
+  connections:
+    - name: reddit_conn
+      integration: reddit
+
+  triggers:
+    - name: create_post_webhook
+      type: webhook
+      event_type: post
+      call: program.py:create_post
+
+    - name: add_comment_webhook
+      type: webhook
+      event_type: post
+      call: program.py:add_comment
+
+
+
+================================================
+FILE: samples/reddit/program.py
+================================================
+"""Demonstrates AutoKitteh's Reddit integration for managing posts and comments.
+
+This sample shows how to create posts on Reddit, add comments, and retrieve post info.
+
+This program isn't meant to cover all available functions and events.
+It merely showcases various illustrative, annotated, reusable examples.
+"""
+
+import os
+
+from autokitteh.reddit import reddit_client
+from praw.exceptions import RedditAPIException
+
+
+reddit = reddit_client("reddit_conn")
+
+SUBREDDIT = os.getenv("SUBREDDIT", "")
+
+
+def create_post(event):
+    """Create a new post in a subreddit."""
+    if not SUBREDDIT:
+        print("Error: SUBREDDIT environment variable is not set")
+        return
+
+    form = event.data.body.form
+    post_title = form.get("title", "AutoKitteh Post")
+    post_content = form.get("content", "Created by AutoKitteh")
+    post_flair = form.get("flair", "default")
+
+    try:
+        subreddit = reddit.subreddit(SUBREDDIT)
+        submission = subreddit.submit(
+            post_title, selftext=post_content, flair_id=post_flair
+        )
+        print(f"Post '{post_title}' created successfully!")
+        print(f"Post ID: {submission.id}")
+        print(f"Post URL: {submission.url}")
+        print(f"Permalink: https://reddit.com{submission.permalink}")
+    except RedditAPIException as e:
+        print("Failed to create post.")
+        print("Error:", str(e))
+
+
+def add_comment(event):
+    """Add a comment to an existing post.
+
+    This function adds a comment to a post using the post ID from form data.
+
+    Args:
+        event: The HTTP event containing request data.
+    """
+    form = event.data.body.form
+    post_id = form.get("post_id")
+    comment_text = form.get("comment", "Comment from AutoKitteh")
+
+    if not post_id:
+        print("Error: post_id parameter is required")
+        return
+
+    try:
+        submission = reddit.submission(id=post_id)
+        comment = submission.reply(comment_text)
+
+        print(f"Comment added successfully to post {post_id}")
+        print(f"Comment ID: {comment.id}")
+        print(f"Comment URL: https://reddit.com{comment.permalink}")
+    except RedditAPIException as e:
+        print("Failed to add comment.")
+        print("Error:", str(e))
 
 
 
