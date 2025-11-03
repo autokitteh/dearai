@@ -15,9 +15,7 @@ import (
 	"go.autokitteh.dev/autokitteh/web/static"
 )
 
-const IntegrationName = "zoom"
-
-var desc = common.Descriptor(IntegrationName, "Zoom", "/static/images/zoom.svg")
+var desc = common.Descriptor("zoom", "Zoom", "/static/images/zoom.svg")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

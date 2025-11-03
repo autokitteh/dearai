@@ -20,12 +20,14 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "googleforms"
+const (
+	integrationName = "googleforms"
+)
 
 var (
-	IntegrationID = sdktypes.NewIntegrationIDFromName(IntegrationName)
+	IntegrationID = sdktypes.NewIntegrationIDFromName(integrationName)
 
-	desc = common.Descriptor(IntegrationName, "Google Forms", "/static/images/google_forms.svg")
+	desc = common.Descriptor(integrationName, "Google Forms", "/static/images/google_forms.svg")
 )
 
 type api struct {

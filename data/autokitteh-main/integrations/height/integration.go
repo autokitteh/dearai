@@ -12,9 +12,7 @@ import (
 	"go.autokitteh.dev/autokitteh/web/static"
 )
 
-const IntegrationName = "height"
-
-var desc = common.Descriptor(IntegrationName, "Height", "/static/images/height.png")
+var desc = common.Descriptor("height", "Height", "/static/images/height.png")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

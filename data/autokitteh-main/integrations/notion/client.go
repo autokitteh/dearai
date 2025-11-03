@@ -13,9 +13,7 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "notion"
-
-var desc = common.Descriptor(IntegrationName, "Notion", "/static/images/notion.svg")
+var desc = common.Descriptor("notion", "Notion", "/static/images/notion.svg")
 
 // connStatus is an optional connection status check provided by
 // the integration to AutoKitteh. The possible results are "Init

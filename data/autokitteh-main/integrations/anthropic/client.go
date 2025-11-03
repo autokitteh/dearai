@@ -17,9 +17,7 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "anthropic"
-
-var desc = common.Descriptor(IntegrationName, "Anthropic Claude", "/static/images/anthropic_claude.svg")
+var desc = common.Descriptor("anthropic", "Anthropic Claude", "/static/images/anthropic_claude.svg")
 
 func New(cvars sdkservices.Vars) sdkservices.Integration {
 	return sdkintegrations.NewIntegration(

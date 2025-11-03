@@ -11,10 +11,7 @@ categories: ["Samples"]
 
 The Pipedrive sample demonstrates how to manage deals using AutoKitteh's Pipedrive integration.
 
-The sample includes two separate workflows:
-
-1. **Create Deal** - Create a Pipedrive deal
-2. **Fetch all deals** - Get all the deals
+It features functionality to create new deals in Pipedrive and fetch all deals from your account.
 
 API details:
 
@@ -45,9 +42,6 @@ API details:
 curl -X POST "${WEBHOOK_URL}" -d "title=New Deal&value=5000"
 ```
 
-- Replace `WEBHOOK_URL` with the URL of `create_deal_webhook` webhook in the triggers section.
-- Provide a title and a value.
-
 > [!NOTE]
 > Both `title` and `value` parameters are optional. Defaults are `'AutoKitteh Deal'` and `1000` respectively.
 
@@ -57,7 +51,7 @@ curl -X POST "${WEBHOOK_URL}" -d "title=New Deal&value=5000"
 curl "${WEBHOOK_URL}"
 ```
 
-Replace `WEBHOOK_URL` with the URL of `fetch_all_deals_webhook` webhook in the triggers section.
+This will retrieve and display all deals from your Pipedrive account.
 
 > [!TIP]
 > Function `fetch_all_deals` can also be triggered manually by clicking the "Run" button in the UI.

@@ -13,10 +13,8 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "asana"
-
 var (
-	desc = common.Descriptor(IntegrationName, "Asana", "/static/images/asana.svg")
+	desc = common.Descriptor("asana", "Asana", "/static/images/asana.svg")
 
 	patVar      = sdktypes.NewSymbol("pat")
 	authTypeVar = sdktypes.NewSymbol("authType")

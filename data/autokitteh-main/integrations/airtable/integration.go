@@ -11,9 +11,7 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdkservices"
 )
 
-const IntegrationName = "airtable"
-
-var desc = common.Descriptor(IntegrationName, "Airtable", "/static/images/airtable.svg")
+var desc = common.Descriptor("airtable", "Airtable", "/static/images/airtable.svg")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

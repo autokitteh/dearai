@@ -8,9 +8,7 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdkservices"
 )
 
-const IntegrationName = "googlesheets"
-
-var desc = common.Descriptor(IntegrationName, "Google Sheets", "/static/images/google_sheets.svg")
+var desc = common.Descriptor("googlesheets", "Google Sheets", "/static/images/google_sheets.svg")
 
 func New(cvars sdkservices.Vars) sdkservices.Integration {
 	return sdkintegrations.NewIntegration(

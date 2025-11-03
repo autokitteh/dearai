@@ -12,7 +12,6 @@ This program isn't meant to cover all available functions and events.
 It merely showcases various illustrative, annotated, reusable examples.
 """
 
-from autokitteh import http_outcome
 from autokitteh.anthropic import anthropic_client
 
 
@@ -56,8 +55,6 @@ def on_http_post_with_prompt(event):
     print(f"User prompt: {body}")
     print(f"\nClaude's response: {message.content[0].text}")
     print(f"\nUsage statistics: {message.usage}")
-
-    http_outcome(status_code=200, body=message.content[0].text)
 
 
 def on_http_get_demo(event):

@@ -15,9 +15,7 @@ import (
 	"go.autokitteh.dev/autokitteh/web/static"
 )
 
-const IntegrationName = "salesforce"
-
-var desc = common.Descriptor(IntegrationName, "Salesforce", "/static/images/salesforce.png")
+var desc = common.Descriptor("salesforce", "Salesforce", "/static/images/salesforce.png")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

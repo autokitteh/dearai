@@ -15,12 +15,14 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "jira"
+const (
+	integrationName = "jira"
+)
 
 var (
-	IntegrationID = sdktypes.NewIntegrationIDFromName(IntegrationName)
+	IntegrationID = sdktypes.NewIntegrationIDFromName(integrationName)
 
-	desc = common.Descriptor(IntegrationName, "Atlassian Jira", "/static/images/jira.svg")
+	desc = common.Descriptor(integrationName, "Atlassian Jira", "/static/images/jira.svg")
 )
 
 type integration struct {

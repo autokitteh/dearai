@@ -17,9 +17,7 @@ import (
 	"go.autokitteh.dev/autokitteh/web/static"
 )
 
-const IntegrationName = "slack"
-
-var desc = common.Descriptor(IntegrationName, "Slack", "/static/images/slack.svg")
+var desc = common.Descriptor("slack", "Slack", "/static/images/slack.svg")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

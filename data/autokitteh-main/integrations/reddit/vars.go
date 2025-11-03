@@ -5,9 +5,7 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "reddit"
-
-var desc = common.Descriptor(IntegrationName, "Reddit", "/static/images/reddit.svg")
+var desc = common.Descriptor("reddit", "Reddit", "/static/images/reddit.svg")
 
 var redditTokenURL = "https://www.reddit.com/api/v1/access_token"
 

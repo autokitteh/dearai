@@ -15,9 +15,7 @@ import (
 	"go.autokitteh.dev/autokitteh/web/static"
 )
 
-const IntegrationName = "linear"
-
-var desc = common.Descriptor(IntegrationName, "Linear", "/static/images/linear.svg")
+var desc = common.Descriptor("linear", "Linear", "/static/images/linear.svg")
 
 // New defines an AutoKitteh integration, which
 // is registered when the AutoKitteh server starts.

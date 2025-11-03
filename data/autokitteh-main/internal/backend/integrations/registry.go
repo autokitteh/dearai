@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"go.uber.org/zap"
+	"logur.dev/logur/integration/grpc"
 
 	"go.autokitteh.dev/autokitteh/integrations/airtable"
 	"go.autokitteh.dev/autokitteh/integrations/anthropic"
@@ -49,69 +50,70 @@ type Integration struct {
 }
 
 var all = []Integration{
-	{airtable.IntegrationName, airtable.New, airtable.Start},
-	{anthropic.IntegrationName, anthropic.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"airtable", airtable.New, airtable.Start},
+	{"anthropic", anthropic.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		anthropic.Start(l, m, v)
 	}},
-	{asana.IntegrationName, asana.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"asana", asana.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		asana.Start(l, m)
 	}},
-	{auth0.IntegrationName, auth0.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"auth0", auth0.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		auth0.Start(l, m, v)
 	}},
-	{aws.IntegrationName, aws.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"aws", aws.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		aws.Start(l, m)
 	}},
-	{azurebot.IntegrationName, azurebot.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
+	{"azurebot", azurebot.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
 		azurebot.Start(l, m, v, d)
 	}},
-	{calendar.IntegrationName, calendar.New, nil},
-	{chatgpt.IntegrationName, chatgpt.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"calendar", calendar.New, nil},
+	{"chatgpt", chatgpt.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		chatgpt.Start(l, m)
 	}},
-	{confluence.IntegrationName, confluence.New, confluence.Start},
-	{discord.IntegrationName, discord.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
+	{"confluence", confluence.New, confluence.Start},
+	{"discord", discord.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
 		discord.Start(l, m, v, d)
 	}},
-	{drive.IntegrationName, drive.New, nil},
-	{forms.IntegrationName, forms.New, nil},
-	{gemini.IntegrationName, gemini.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"drive", drive.New, nil},
+	{"forms", forms.New, nil},
+	{"gemini", gemini.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		gemini.Start(l, m)
 	}},
-	{github.IntegrationName, github.New, github.Start},
-	{gmail.IntegrationName, gmail.New, nil},
-	{google.IntegrationName, google.New, google.Start},
-	{height.IntegrationName, height.New, height.Start},
-	{hubspot.IntegrationName, hubspot.New, hubspot.Start},
-	{jira.IntegrationName, jira.New, jira.Start},
-	{kubernetes.IntegrationName, kubernetes.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"github", github.New, github.Start},
+	{"gmail", gmail.New, nil},
+	{"google", google.New, google.Start},
+	{"grpc", grpc.New, nil},
+	{"height", height.New, height.Start},
+	{"hubspot", hubspot.New, hubspot.Start},
+	{"jira", jira.New, jira.Start},
+	{"kubernetes", kubernetes.New, func(l *zap.Logger, m *muxes.Muxes, _ sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		kubernetes.Start(l, m)
 	}},
-	{linear.IntegrationName, linear.New, linear.Start},
-	{teams.IntegrationName, teams.New, nil},
-	{microsoft.IntegrationName, microsoft.New, microsoft.Start},
-	{notion.IntegrationName, notion.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"linear", linear.New, linear.Start},
+	{"microsoft_teams", teams.New, nil},
+	{"microsoft", microsoft.New, microsoft.Start},
+	{"notion", notion.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		notion.Start(l, m, v)
 	}},
-	{pipedrive.IntegrationName, pipedrive.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"pipedrive", pipedrive.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		pipedrive.Start(l, m, v)
 	}},
-	{reddit.IntegrationName, reddit.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
+	{"reddit", reddit.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, _ sdkservices.DispatchFunc) {
 		reddit.Start(l, m, v)
 	}},
-	{salesforce.IntegrationName, salesforce.New, salesforce.Start},
-	{sheets.IntegrationName, sheets.New, nil},
-	{slack.IntegrationName, slack.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
+	{"salesforce", salesforce.New, salesforce.Start},
+	{"sheets", sheets.New, nil},
+	{"slack", slack.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
 		slack.Start(l, m, v, d)
 	}},
-	{telegram.IntegrationName, telegram.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
+	{"telegram", telegram.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
 		telegram.Start(l, m, v, d)
 	}},
-	{twilio.IntegrationName, twilio.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
+	{"twilio", twilio.New, func(l *zap.Logger, m *muxes.Muxes, v sdkservices.Vars, _ *oauth.OAuth, d sdkservices.DispatchFunc) {
 		twilio.Start(l, m, v, d)
 	}},
-	{youtube.IntegrationName, youtube.New, nil},
-	{zoom.IntegrationName, zoom.New, zoom.Start},
+	{"youtube", youtube.New, nil},
+	{"zoom", zoom.New, zoom.Start},
 }
 
 func All() []Integration { return all }

@@ -15,12 +15,14 @@ import (
 	"go.autokitteh.dev/autokitteh/sdk/sdktypes"
 )
 
-const IntegrationName = "discord"
+const (
+	integrationName = "discord"
+)
 
 var (
-	integrationID = sdktypes.NewIntegrationIDFromName(IntegrationName)
+	integrationID = sdktypes.NewIntegrationIDFromName(integrationName)
 
-	desc = common.Descriptor(IntegrationName, "Discord", "/static/images/discord.svg")
+	desc = common.Descriptor(integrationName, "Discord", "/static/images/discord.svg")
 )
 
 type integration struct{ vars sdkservices.Vars }

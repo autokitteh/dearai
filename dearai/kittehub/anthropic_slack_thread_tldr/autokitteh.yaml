@@ -2,7 +2,7 @@
 # of an AutoKitteh sample project that demonstrates integration with
 # Gmail, ChatGPT, and Slack.
 
-version: v2
+version: v1
 
 project:
   name: anthropic_slack_thread_tldr

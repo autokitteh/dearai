@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	IntegrationName = "confluence"
+	integrationName = "confluence"
 )
 
 var (
-	integrationID = sdktypes.NewIntegrationIDFromName(IntegrationName)
+	integrationID = sdktypes.NewIntegrationIDFromName(integrationName)
 
-	desc = common.Descriptor(IntegrationName, "Atlassian Confluence", "/static/images/confluence.svg")
+	desc = common.Descriptor(integrationName, "Atlassian Confluence", "/static/images/confluence.svg")
 )
 
 type integration struct {

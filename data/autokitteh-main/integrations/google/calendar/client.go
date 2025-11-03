@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	IntegrationName = "googlecalendar"
+	integrationName = "googlecalendar"
 )
 
 var (
-	IntegrationID = sdktypes.NewIntegrationIDFromName(IntegrationName)
+	IntegrationID = sdktypes.NewIntegrationIDFromName(integrationName)
 
-	desc = common.Descriptor(IntegrationName, "Google Calendar", "/static/images/google_calendar.svg")
+	desc = common.Descriptor(integrationName, "Google Calendar", "/static/images/google_calendar.svg")
 )
 
 type api struct {
