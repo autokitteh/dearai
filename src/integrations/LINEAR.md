@@ -1,6 +1,6 @@
 # Linear Integration
 
-when making a GraphQL request for linear api make sure to include a `teamId` field
+When making a GraphQL request for linear api make sure to include a `teamId` field
 
 Always include teamId when creating issues or projects in Linear.
 
