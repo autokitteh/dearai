@@ -20,6 +20,7 @@ jira
 linear
 notion
 pipedrive
+reddit
 slack
 telegram
 twilio
