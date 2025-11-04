@@ -2,12 +2,10 @@ The following integration names are supported:
 anthropic
 asana
 auth0
-autokitteh
 aws
 chatgpt
 confluence
 github
-githubcopilot
 gmail
 googlecalendar
 googledrive
@@ -17,10 +15,13 @@ googlesheets
 height
 hubspot
 jira
+kubernetes
 linear
+microsoft_teams
 notion
 pipedrive
 reddit
+salesforce
 slack
 telegram
 twilio
