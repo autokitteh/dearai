@@ -7,7 +7,7 @@ The code is Python 3 code.
 
 By default, AutoKitteh makes available the following packages for the program:
 """
-anthropic ~= 0.54.0
+anthropic ~= 0.71.0
 asana ~= 5.0
 atlassian-python-api ~= 3.41
 auth0-python ~= 4.7
@@ -50,13 +50,11 @@ The following integration names are supported:
 anthropic
 asana
 auth0
-autokitteh
 aws
 chatgpt
 confluence
 discord
 github
-githubcopilot
 gmail
 googlecalendar
 googledrive
@@ -66,9 +64,13 @@ googlesheets
 height
 hubspot
 jira
+kubernetes
 linear
+microsoft_teams
 notion
 pipedrive
+reddit
+salesforce
 slack
 telegram
 twilio
