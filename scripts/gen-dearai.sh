@@ -7,7 +7,7 @@ mkdir dearai
 mkdir dearai/src
 mkdir dearai/src/integrations
 
-find src -type f ! -name "_*" -not -path "*/_*/*" -exec uvx jinja2 --strict {} -o dearai/{} \;
+find src -type f ! -name "_*" -not -path "*/_*/*" -exec uvx --from jinja2-cli jinja2 --strict {} -o dearai/{} \;
 
 cp -r src/pyak dearai/pyak
 cp -r data/kittehub-main dearai/kittehub
