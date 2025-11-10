@@ -1331,6 +1331,8 @@ FILE: integrations/SLACK.md
 
 See https://api.slack.com/events.
 
+Do not add bot/self filters. The Slack webhook backend already ignores events from the bot and other bot-generated events.
+
 
 
 ================================================
@@ -2720,6 +2722,7 @@ class Op(StrEnum):
     GET = 'get'
     DEL = 'del'
     ADD = 'add'
+    CHECK_AND_SET = 'check_and_set'
 
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:

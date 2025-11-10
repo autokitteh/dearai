@@ -1727,6 +1727,8 @@ FILE: integrations/SLACK.md
 
 See https://api.slack.com/events.
 
+Do not add bot/self filters. The Slack webhook backend already ignores events from the bot and other bot-generated events.
+
 
 
 ================================================
@@ -3461,6 +3463,7 @@ from anthropic.types.beta import BetaMessageParam
 
 from anthropic import Anthropic
 from anthropic import beta_tool
+import autokitteh
 from autokitteh.anthropic import anthropic_client
 from autokitteh.errors import ConnectionInitError
 from data import find_foods_by_name
@@ -3560,6 +3563,7 @@ def _find_foods_by_name_tool(name: str) -> str:
     )
 
 
+@autokitteh.activity
 def interact(
     q0: str | None,
     get_next: typing.Callable[[], str],
@@ -4072,8 +4076,6 @@ deploy:
 ================================================
 FILE: kittehub/carbcat/requirements.txt
 ================================================
-anthropic==0.71.0
-autokitteh
 rapidfuzz
 
 
@@ -20783,6 +20785,7 @@ class Op(StrEnum):
     GET = 'get'
     DEL = 'del'
     ADD = 'add'
+    CHECK_AND_SET = 'check_and_set'
 
 
 def mutate_value(key: str, op: Op, *args: list[Any]) ->Any:
