@@ -1,5 +1,42 @@
 ## Pitfalls
 
+## Entry Point Functions Must Be Synchronous
+
+Entry point functions (functions called from triggers) MUST be synchronous. AutoKitteh does not support async functions as entry points.
+
+If you need to use async operations in your workflow, create a synchronous wrapper function that uses `asyncio.run()`:
+
+```python
+import asyncio
+
+# Entry point function - MUST be synchronous
+def on_event(event):
+    asyncio.run(handle_event_async(event))
+
+# Actual handler can be async
+async def handle_event_async(event):
+    result = await some_async_operation()
+    await another_async_operation(result)
+```
+
+**BAD - This will cause deployment to fail:**
+
+```python
+# Entry point is async - WILL FAIL
+async def on_event(event):
+    result = await some_async_operation()
+```
+
+**GOOD - Synchronous entry point:**
+
+```python
+def on_event(event):
+    asyncio.run(async_handler(event))
+
+async def async_handler(event):
+    result = await some_async_operation()
+```
+
 ## Function Return Value Must Be Pickleable
 
 In durable mode, we use pickle to pass function arguments back to AutoKitteh to run as an activity. See What can be pickled and unpickled? for supported types. Most notably, the following can't be pickled:

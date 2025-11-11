@@ -29,7 +29,7 @@ A TRIGGER can be of one of several types.
 - Schedule Trigger: runs on a schedule, defined by a cronspec.
 - Connection Trigger: A third party service sends an event, which when the trigger matches the event - it is invoked.
 
-A TRIGGER can point to a function which is executed once it is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT. Note that specifying a call field is optional. If the call field is omitted, the trigger will not automatically start a new session when hit. This is useful when you want to manually wait for the trigger's events using `autokitteh.next_event()` from within an already-running session, rather than automatically starting a new session for each event.
+A TRIGGER can point to a synchronous function which is executed once it is hit and matches optional filter. The method is specified in the format: "filename:method_name", when `filename` is a name of a RESOURCE in the PROJECT. Note that specifying a call field is optional. If the call field is omitted, the trigger will not automatically start a new session when hit. This is useful when you want to manually wait for the trigger's events using `autokitteh.next_event()` from within an already-running session, rather than automatically starting a new session for each event.
 
 A TRIGGER can include a FILTER definition in its `filter` field. The FILTER is specified as a Google CEL expression. The CEL expression takes as input the EVENT payload, under the name `data`. The event type will be under the name `event_type`.
 
