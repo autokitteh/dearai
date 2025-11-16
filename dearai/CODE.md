@@ -61,7 +61,6 @@ googledrive
 googleforms
 googlegemini
 googlesheets
-height
 hubspot
 jira
 kubernetes
@@ -80,6 +79,8 @@ zoom
 
 These are the ONLY integrations supported.
 NEVER specifiy any integration that does not appear above as an integration.
+
+Check \_EVENTS.md before using `event_type` - many integrations (auth0, aws, notion, googlesheets, etc.) are API-only and do NOT support events.
 
 ## Pitfalls
 
@@ -256,6 +257,69 @@ def on_some_trigger(event: Event):
 The event contains the `session_id` for the session and the event payload in its `data` field.
 
 Each integration has a different event payload format. See details about each integration format in the `integrations/` folder.
+
+## Which Integrations Support Events?
+
+Before adding `event_type` to a trigger, check this list to verify the integration supports events.
+
+### Integrations WITH Events
+
+**Format:** integration_name - event_type1, event_type2, ... (link to full list)
+
+- **slack** - See full list at https://api.slack.com/events?filter=Events + interaction, slash_command
+- **github** - See full list at https://docs.github.com/en/rest/using-the-rest-api/github-event-types
+- **discord** - message_create, message_update, message_delete, message_reaction_add, message_reaction_remove, presence_update, thread_create, thread_update
+- **linear** - See full list at https://developers.linear.app/docs/graphql/webhooks
+- **zoom** - See full list at https://developers.zoom.us/docs/api/webhooks/
+- **jira** - jira:issue_created, jira:issue_updated, jira:issue_deleted, comment_created, comment_updated, comment_deleted, issue_property_set, issue_property_deleted, see full list at https://developer.atlassian.com/cloud/jira/platform/webhooks/
+- **confluence** - See full list at https://developer.atlassian.com/cloud/confluence/modules/webhook/
+- **googlecalendar** - event_created, event_updated, event_deleted
+- **googleforms** - responses, schema
+- **googledrive** - file_change, file_remove
+- **gmail** - mailbox_change
+- **hubspot** - See full list at https://developers.hubspot.com/docs/api/webhooks
+- **telegram** - message
+
+### Integrations WITHOUT Events
+
+**API-only integrations - use `type: webhook` or `type: schedule` to trigger, then call their APIs:**
+
+- auth0
+- aws
+- anthropic
+- chatgpt
+- asana
+- height
+- notion
+- pipedrive
+- reddit
+- twilio
+- youtube
+- kubernetes
+- googlegemini
+- googlesheets
+- microsoft_teams
+- salesforce
+- hubspot
+
+**Example - WRONG:**
+
+```yaml
+triggers:
+  - name: on_auth0_login
+    connection: auth0_conn
+    event_type: user.login # ❌ DOES NOT EXIST
+```
+
+**Example - CORRECT:**
+
+```yaml
+triggers:
+  - name: hourly_sync
+    type: schedule
+    schedule: "0 * * * *"
+    call: program.py:sync_auth0_users # Calls auth0 API inside
+```
 
 ---
 sidebar_position: 1

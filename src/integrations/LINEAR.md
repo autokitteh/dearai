@@ -1,5 +1,11 @@
 # Linear Integration
 
+## Available Events
+
+All webhook events from https://developers.linear.app/docs/graphql/webhooks
+
+## API Usage
+
 When making a GraphQL request for linear api make sure to include a `teamId` field
 
 Always include teamId when creating issues or projects in Linear.
