@@ -1,5 +1,7 @@
 # Gmail Integration
 
+## Event Details
+
 Reacting on Gmail state change can be done in either of two ways:
 
 - Polling using a schedule trigger and checking the state, or -

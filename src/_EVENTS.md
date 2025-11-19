@@ -13,6 +13,66 @@ The event contains the `session_id` for the session and the event payload in its
 
 Each integration has a different event payload format. See details about each integration format in the `integrations/` folder.
 
+## Which Integrations Support Events?
+
+Before adding `event_type` to a trigger, check this list to verify the integration supports events.
+
+### Integrations WITH Events
+
+- slack
+- github
+- discord
+- linear
+- zoom
+- jira
+- confluence
+- googlecalendar
+- googleforms
+- googledrive
+- gmail
+- hubspot
+- telegram
+
+For event details, see the integration's file in the `integrations/` folder.
+
+### Integrations WITHOUT Events
+
+**API-only integrations - use `type: webhook` or `type: schedule` to trigger, then call their APIs:**
+
+- auth0
+- aws
+- anthropic
+- chatgpt
+- asana
+- notion
+- pipedrive
+- reddit
+- twilio
+- youtube
+- kubernetes
+- googlegemini
+- microsoft_teams
+- salesforce
+
+**Example - WRONG:**
+
+```yaml
+triggers:
+  - name: on_auth0_login
+    connection: auth0_conn
+    event_type: user.login # ❌ DOES NOT EXIST
+```
+
+**Example - CORRECT:**
+
+```yaml
+triggers:
+  - name: hourly_sync
+    type: schedule
+    schedule: "0 * * * *"
+    call: program.py:sync_auth0_users # Calls auth0 API inside
+```
+
 {% include "_data/docs/develop/events/subscription.md" %}
 
 ## Waiting for events in programs

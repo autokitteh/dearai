@@ -12,7 +12,6 @@ googledrive
 googleforms
 googlegemini
 googlesheets
-height
 hubspot
 jira
 kubernetes
